@@ -29,6 +29,7 @@ import SettingsPanel from './components/drawer/SettingsPanel';
 import EnhancePanel from './components/drawer/EnhancePanel';
 import VariationsPanel from './components/drawer/VariationsPanel';
 import LayoutsPanel from './components/drawer/LayoutsPanel';
+import ImportPanel from './components/drawer/ImportPanel';
 
 import { 
     ThinkingIcon, 
@@ -45,7 +46,8 @@ import {
     UndoIcon,
     RedoIcon,
     SettingsIcon,
-    WandIcon
+    WandIcon,
+    UploadIcon
 } from './components/Icons';
 
 function App() {
@@ -79,7 +81,7 @@ function App() {
 
   const [drawerState, setDrawerState] = useState<{
       isOpen: boolean;
-      mode: 'code' | 'variations' | 'layouts' | 'settings' | 'enhance' | 'history' | null;
+      mode: 'code' | 'variations' | 'layouts' | 'settings' | 'enhance' | 'history' | 'import' | null;
       title: string;
       data: any;
       error?: string | null;
@@ -419,6 +421,30 @@ Instructions:
   const handleShowSettings = () => setDrawerState({ isOpen: true, mode: 'settings', title: 'Configuration', data: null, error: null });
   const handleShowEnhance = () => setDrawerState({ isOpen: true, mode: 'enhance', title: 'Enhance Dashboard', data: null, error: null });
   const handleShowHistory = () => setDrawerState({ isOpen: true, mode: 'history', title: 'Recent Dashboards', data: null, error: null });
+  const handleShowImport = () => setDrawerState({ isOpen: true, mode: 'import', title: 'Import Dashboard', data: null, error: null });
+
+  const handleImportDashboard = (html: string, fileName: string) => {
+      const sessionId = generateId();
+      const artifact: Artifact = {
+          id: `${sessionId}_0`,
+          styleName: fileName.replace('.html', ''),
+          html: html,
+          originalHtml: html,
+          status: 'complete',
+      };
+
+      const newSession: Session = {
+          id: sessionId,
+          prompt: `Imported: ${fileName}`,
+          timestamp: Date.now(),
+          artifacts: [artifact]
+      };
+
+      setSessions(prev => [...prev, newSession]);
+      setCurrentSessionIndex(prev => prev + 1);
+      setFocusedArtifactIndex(0);
+      setDrawerState(s => ({ ...s, isOpen: false }));
+  };
 
   const handleDownload = () => {
     if (focusedArtifactIndex === null || currentSessionIndex === -1) return;
@@ -603,6 +629,8 @@ Requirements:
         <div className="global-controls">
             <button className="icon-btn" onClick={handleShowHistory} title="History"><HistoryIcon /></button>
             <div className="divider"></div>
+            <button className="icon-btn" onClick={handleShowImport} title="Import Dashboard"><UploadIcon /></button>
+            <div className="divider"></div>
             <button className="icon-btn" disabled={!canUndo} onClick={undo} title="Undo"><UndoIcon /></button>
             <button className="icon-btn" disabled={!canRedo} onClick={redo} title="Redo"><RedoIcon /></button>
             <div className="divider"></div>
@@ -636,6 +664,10 @@ Requirements:
 
             {drawerState.mode === 'enhance' && (
                 <EnhancePanel onEnhance={handleEnhance} />
+            )}
+            
+            {drawerState.mode === 'import' && (
+                <ImportPanel onImport={handleImportDashboard} />
             )}
             
             {drawerState.mode === 'code' && (

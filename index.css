@@ -210,3 +210,121 @@ html, body {
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin-icon { animation: spin 1s linear infinite; }
+
+/* === Import Panel === */
+.import-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.import-panel .panel-description {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0 0 8px 0;
+    font-size: 0.95rem;
+}
+
+.drop-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: 16px;
+    padding: 48px 24px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.02);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.drop-zone.dragging {
+    border-color: var(--accent-color);
+    background: rgba(255, 255, 255, 0.05);
+    transform: scale(1.02);
+}
+
+.drop-zone svg {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 16px;
+    color: var(--text-secondary);
+}
+
+.drop-zone h3 {
+    margin: 0 0 8px 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.drop-zone p {
+    color: var(--text-secondary);
+    margin: 8px 0;
+    font-size: 0.9rem;
+}
+
+.browse-btn {
+    margin-top: 16px;
+    padding: 10px 24px;
+    background: var(--accent-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+}
+
+.browse-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-1px);
+}
+
+.import-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.import-preview h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.preview-info {
+    display: flex;
+    gap: 16px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.preview-iframe-container {
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    height: 300px;
+    background: #fff;
+}
+
+.preview-iframe-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.import-confirm-btn {
+    padding: 12px 24px;
+    background: #fff;
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.95rem;
+}
+
+.import-confirm-btn:hover {
+    background: rgba(255, 255, 255, 0.9);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+}
