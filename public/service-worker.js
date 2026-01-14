@@ -16,9 +16,9 @@ const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/index.css',
-  '/index.tsx',
   '/manifest.json',
-  // Add compiled JS bundle path after build
+  // Note: Add compiled JS bundle path after build (e.g., '/assets/index-[hash].js')
+  // These will be added dynamically or via build-time configuration
 ];
 
 // Cache-first strategy for these patterns

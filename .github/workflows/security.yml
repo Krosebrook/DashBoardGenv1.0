@@ -59,7 +59,8 @@ jobs:
         run: npm ci
 
       - name: Run npm audit
-        run: npm audit --audit-level=moderate || true
+        run: npm audit --audit-level=moderate
+        continue-on-error: true  # Don't fail build but show warnings
 
       - name: Generate SBOM (Software Bill of Materials)
         run: |
@@ -132,11 +133,12 @@ jobs:
 
       - name: Check licenses
         run: npx license-checker --summary
-        continue-on-error: true
+        continue-on-error: true  # Don't fail build but show warnings
 
       - name: Check for problematic licenses
         run: |
-          npx license-checker --onlyAllow "MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD" || true
+          npx license-checker --onlyAllow "MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD"
+        continue-on-error: true  # Don't fail build but show warnings
 
   # OWASP Dependency Check (comprehensive)
   owasp-scan:
