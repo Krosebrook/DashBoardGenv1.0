@@ -23,11 +23,13 @@ export default function ExportPanel({ currentHtml, dashboardName }: ExportPanelP
         const styles = styleMatch ? styleMatch[1] : '';
         const bodyContent = bodyMatch ? bodyMatch[1] : html;
 
-        // Simple conversion (in a real app, you'd use a proper parser)
+        // Simple conversion for export display only (not executed)
+        // This is safe as the output is only shown in a code preview, not rendered as HTML
+        // Convert HTML attributes to JSX and remove comments
         let jsxContent = bodyContent
+            .replace(/<!--[\s\S]*?-->/g, '') // Remove HTML comments
             .replace(/class=/g, 'className=')
             .replace(/for=/g, 'htmlFor=')
-            .replace(/<!--[\s\S]*?-->/g, '')
             .trim();
 
         return `import React from 'react';
