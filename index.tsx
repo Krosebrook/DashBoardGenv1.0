@@ -11,7 +11,6 @@ import ReactDOM from 'react-dom/client';
 
 import { Artifact, Session, ComponentVariation, LayoutOption, GenerationSettings } from './types';
 import { INITIAL_PLACEHOLDERS, LAYOUT_OPTIONS } from './constants';
-import { DASHBOARD_TEMPLATES } from './constants/templates';
 import { generateId, parseJsonStream } from './utils';
 import { useHistory } from './hooks/useHistory';
 import { loadSessions, saveSessions, clearSessions } from './utils/storage';
@@ -27,14 +26,9 @@ import PreviewModal from './components/PreviewModal';
 // Drawer Panels
 import HistoryPanel from './components/drawer/HistoryPanel';
 import SettingsPanel from './components/drawer/SettingsPanel';
-import EnhancePanel from './components/drawer/EnhancePanel';
+import EnhancePanel, { EnhanceType } from './components/drawer/EnhancePanel';
 import VariationsPanel from './components/drawer/VariationsPanel';
 import LayoutsPanel from './components/drawer/LayoutsPanel';
-import ImportPanel from './components/drawer/ImportPanel';
-import TemplatesPanel from './components/drawer/TemplatesPanel';
-import ExportPanel from './components/drawer/ExportPanel';
-import DashboardFormBuilder, { DashboardSpecs } from './components/drawer/DashboardFormBuilder';
-import ProjectsPanel from './components/drawer/ProjectsPanel';
 
 import { 
     ThinkingIcon, 
@@ -52,9 +46,7 @@ import {
     RedoIcon,
     SettingsIcon,
     WandIcon,
-    UploadIcon,
-    FileIcon,
-    FolderIcon
+    RefreshIcon
 } from './components/Icons';
 
 function App() {
@@ -88,7 +80,7 @@ function App() {
 
   const [drawerState, setDrawerState] = useState<{
       isOpen: boolean;
-      mode: 'code' | 'variations' | 'layouts' | 'settings' | 'enhance' | 'history' | 'import' | 'templates' | 'export' | 'form' | 'projects' | null;
+      mode: 'code' | 'variations' | 'layouts' | 'settings' | 'enhance' | 'history' | null;
       title: string;
       data: any;
       error?: string | null;
@@ -151,147 +143,7 @@ function App() {
       return new GoogleGenAI({ apiKey });
   };
 
-  const fetchVariations = useCallback(async (append: boolean) => {
-    const currentSession = sessions[currentSessionIndex];
-    if (!currentSession || focusedArtifactIndex === null) return;
-    
-    if (append && componentVariations.length >= 6) return;
-    const currentArtifact = currentSession.artifacts[focusedArtifactIndex];
-
-    setIsLoading(true);
-    setDrawerState(prev => ({ ...prev, error: null }));
-
-    if (!append) {
-        setComponentVariations([]);
-        setDrawerState({ isOpen: true, mode: 'variations', title: 'Variations', data: currentArtifact.id, error: null });
-    }
-
-    try {
-        const ai = getAiClient();
-
-        let frameworkInstruction = '';
-        if (settings.framework === 'tailwind') frameworkInstruction = 'Use Tailwind CSS via CDN.';
-        else if (settings.framework === 'react-mui') frameworkInstruction = 'Use React and Material UI via CDN. Return a complete HTML file.';
-        else if (settings.framework === 'bootstrap') frameworkInstruction = 'Use Bootstrap 5 via CDN. Ensure responsive classes.';
-        else if (settings.framework === 'foundation') frameworkInstruction = 'Use Foundation 6 via CDN. Ensure correct class names.';
-
-        const currentCount = append ? componentVariations.length : 0;
-        const limit = 6;
-        const countToFetch = Math.min(3, limit - currentCount);
-        
-        if (countToFetch <= 0) return;
-
-        const prompt = `
-You are a master Dashboard UI/UX designer. I have an existing dashboard component and I want ${countToFetch} RADICAL CONCEPTUAL VARIATIONS of it.
-Original Prompt: "${currentSession.prompt}"
-Existing Code: ${currentArtifact.html}
-
-${frameworkInstruction}
-For EACH variation, invent a unique dashboard theme name (e.g. "Fintech Dark", "Medical Clean", "Cyberpunk Analytics") and generate high-fidelity HTML/CSS.
-Ensure the layout remains a dashboard (sidebar/nav/grid).
-Required JSON Output Format (stream ONE object per line):
-\`{ "name": "Theme Name", "html": "..." }\`
-        `.trim();
-
-        const responseStream = await ai.models.generateContentStream({
-            model: 'gemini-3-flash-preview',
-             contents: [{ parts: [{ text: prompt }], role: 'user' }],
-             config: { temperature: 1.1 }
-        });
-
-        for await (const variation of parseJsonStream(responseStream)) {
-            if (variation.name && variation.html) {
-                setComponentVariations(prev => [...prev, variation]);
-            }
-        }
-    } catch (e: any) {
-        setDrawerState(prev => ({ 
-            ...prev, 
-            error: "We encountered an error while designing variations. Please try again." 
-        }));
-    } finally {
-        setIsLoading(false);
-    }
-  }, [sessions, currentSessionIndex, focusedArtifactIndex, settings.framework, componentVariations.length]);
-
-  const handleGenerateVariations = useCallback(() => {
-      fetchVariations(false);
-  }, [fetchVariations]);
-
-  const handleLoadMoreVariations = useCallback(() => {
-      fetchVariations(true);
-  }, [fetchVariations]);
-
-  const applyVariation = (html: string) => {
-      if (focusedArtifactIndex === null) return;
-      setSessions(prev => prev.map((sess, i) => 
-          i === currentSessionIndex ? {
-              ...sess,
-              artifacts: sess.artifacts.map((art, j) => 
-                j === focusedArtifactIndex ? { ...art, html, originalHtml: html, status: 'complete' } : art
-              )
-          } : sess
-      ));
-      setDrawerState(s => ({ ...s, isOpen: false }));
-  };
-
-  const applyLayout = (layout: LayoutOption) => {
-    if (focusedArtifactIndex === null) return;
-    setSessions(prev => prev.map((sess, i) => 
-        i === currentSessionIndex ? {
-            ...sess,
-            artifacts: sess.artifacts.map((art, j) => {
-                if (j === focusedArtifactIndex) {
-                    const baseHtml = art.originalHtml || art.html;
-                    if (layout.name === "Standard Sidebar") return { ...art, html: baseHtml, status: 'complete' };
-                    // For dashboard layouts, we wrap the content but instruct proper sizing
-                    const wrappedHtml = `
-                        <style>${layout.css}</style>
-                        <div class="layout-container">${baseHtml}</div>
-                    `.trim();
-                    return { ...art, html: wrappedHtml, originalHtml: baseHtml, status: 'complete' };
-                }
-                return art;
-            })
-        } : sess
-    ));
-    setDrawerState(s => ({ ...s, isOpen: false }));
-  };
-
-  const handlePreviewLayout = (e: React.MouseEvent, layout: LayoutOption) => {
-    e.stopPropagation();
-    if (focusedArtifactIndex === null || currentSessionIndex === -1) return;
-    const currentSession = sessions[currentSessionIndex];
-    const currentArtifact = currentSession.artifacts[focusedArtifactIndex];
-    const baseHtml = currentArtifact.originalHtml || currentArtifact.html;
-    
-    let htmlToPreview = baseHtml;
-    if (layout.name !== "Standard Sidebar") {
-         htmlToPreview = `
-            <style>${layout.css}</style>
-            <div class="layout-container">${baseHtml}</div>
-        `.trim();
-    }
-    
-    setPreviewItem({
-        name: `Preview: ${layout.name}`,
-        html: htmlToPreview
-    });
-  };
-
-  const updateArtifactCode = (newCode: string) => {
-      if (focusedArtifactIndex === null || currentSessionIndex === -1) return;
-      setSessions(prev => prev.map((sess, i) => 
-          i === currentSessionIndex ? {
-              ...sess,
-              artifacts: sess.artifacts.map((art, j) => 
-                  j === focusedArtifactIndex ? { ...art, html: newCode, originalHtml: newCode } : art
-              )
-          } : sess
-      ));
-  };
-
-  const handleEnhance = async (type: 'a11y' | 'format' | 'dummy' | 'responsive' | 'tailwind' | 'charts' | 'content') => {
+  const handleEnhance = async (type: EnhanceType, file?: File) => {
     if (focusedArtifactIndex === null || currentSessionIndex === -1) return;
     setIsLoading(true);
     setDrawerState(s => ({ ...s, isOpen: false }));
@@ -302,19 +154,80 @@ Required JSON Output Format (stream ONE object per line):
         const artifact = currentSession.artifacts[focusedArtifactIndex];
         
         let enhancementPrompt = '';
-        if (type === 'a11y') enhancementPrompt = 'Conduct a thorough accessibility audit of this HTML. 1. Add precise ARIA labels to all interactive elements (buttons, inputs, navigation). 2. Ensure color contrast ratios meet WCAG 2.1 AA standards (adjust colors if necessary). 3. Use semantic HTML5 tags (nav, main, aside, header) where appropriate. 4. Add alt text to images. Return the fixed HTML.';
-        if (type === 'format') enhancementPrompt = 'Format the dashboard code to be clean, indented, and compliant with Prettier standards.';
-        if (type === 'dummy') enhancementPrompt = 'Inject realistic, business-appropriate data into this dashboard. Populate data tables with rows, add realistic numbers to stat cards, and ensure user profiles have names/avatars (Unsplash).';
-        if (type === 'content') enhancementPrompt = 'Replace placeholder text (Lorem Ipsum) with realistic, context-aware descriptions, names, and titles. Replace empty image placeholders with relevant high-quality images from Unsplash (e.g., user avatars, product thumbnails) using realistic URLs.';
-        if (type === 'responsive') enhancementPrompt = 'Make this dashboard perfectly responsive. Ensure the sidebar collapses on mobile (hamburger menu logic or CSS media queries) and grids stack correctly.';
-        if (type === 'tailwind') enhancementPrompt = 'Refactor this dashboard to use Tailwind CSS utility classes exclusively. Replace custom CSS.';
-        if (type === 'charts') enhancementPrompt = 'Analyze the content and Identify where charts should go. Replace static placeholders with working Chart.js graphs (load Chart.js from CDN). Create <canvas> elements and add the <script> at the bottom to render beautiful, relevant charts.';
+        let parts: any[] = [];
 
-        const fullPrompt = `${enhancementPrompt}\n\nReturn ONLY the complete updated HTML.\n\nExisting Code:\n${artifact.html}`;
+        if (type === 'file-populate' && file) {
+            const getFilePart = async (f: File) => {
+                return new Promise<any>((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const base64 = (reader.result as string).split(',')[1];
+                        resolve({
+                            inlineData: {
+                                data: base64,
+                                mimeType: f.type || 'text/plain'
+                            }
+                        });
+                    };
+                    reader.readAsDataURL(f);
+                });
+            };
+
+            const filePart = await getFilePart(file);
+            enhancementPrompt = `
+                I have uploaded a document. Analyze its contents (text, metrics, tables).
+                Inject this real-world data into the provided dashboard HTML to replace all generic placeholders.
+                Map the metrics to cards, data to tables, and trends to chart data if applicable.
+                Return ONLY the complete updated raw HTML.
+            `;
+            parts = [filePart, { text: enhancementPrompt }, { text: `Existing Code:\n${artifact.html}` }];
+        } else {
+            if (type === 'persona') {
+                enhancementPrompt = `
+                    You are a professional branding and UX content strategist. 
+                    Your goal is to inject highly realistic dummy data into this dashboard UI.
+                    
+                    1. Identity: Generate realistic, diverse, professional user names and roles (e.g. "Senior Strategy Consultant", "Chief Operations Officer"). 
+                    2. Avatars: Replace placeholder/empty avatars with high-quality, professional portraits from Unsplash (e.g., using source.unsplash.com/800x800/?portrait,professional).
+                    3. Branding: Invent a cohesive company brand name, logo text, and professional mission statements.
+                    4. Content: Replace all "Lorem Ipsum" and generic strings with domain-specific, high-value professional copy that fits the dashboard's context.
+                    
+                    Maintain the existing layout and styles. Return ONLY the complete updated raw HTML.
+                `;
+            } else if (type === 'a11y') {
+                enhancementPrompt = `
+                    You are an Accessibility Expert specialized in WCAG 2.1 AA/AAA compliance. 
+                    Audit and fix the provided dashboard HTML to ensure it is fully accessible to all users.
+                    
+                    1. Contrast: Adjust CSS color values to ensure text-to-background contrast ratios meet WCAG standards while preserving the original theme's aesthetic.
+                    2. Semantics: Refactor structural elements to use proper HTML5 semantic tags (<main>, <nav>, <aside>, <section>, <header>, <footer>).
+                    3. ARIA: Add comprehensive ARIA roles, labels, and aria-describedby attributes to all interactive elements (buttons, links, inputs, modals).
+                    4. Images: Ensure all <img> tags have descriptive and meaningful alt text.
+                    5. Forms: Ensure all form controls have properly associated <label> elements.
+                    6. Keyboard: Ensure a logical tab order and visible focus states.
+                    
+                    Return ONLY the complete fixed raw HTML.
+                `;
+            } else if (type === 'format') {
+                enhancementPrompt = 'Prettify and format the code for high readability. Ensure standard indentation and clean organization. Return ONLY cleaned HTML.';
+            } else if (type === 'dummy') {
+                enhancementPrompt = 'Inject high-fidelity, realistic business KPIs and data rows. Ensure numbers look like real analytics (e.g. conversion rates, revenue, churn). Populate tables with at least 8-10 varied rows of content. Return ONLY updated HTML.';
+            } else if (type === 'content') {
+                enhancementPrompt = 'Visual Storytelling: Replace all generic placeholders and empty images with beautiful, context-relevant photography from Unsplash. Return raw HTML.';
+            } else if (type === 'responsive') {
+                enhancementPrompt = 'Mobile-First Refinement: Refine the CSS/layout to be perfectly responsive across all breakpoints (Mobile, Tablet, Desktop). Return raw HTML.';
+            } else if (type === 'tailwind') {
+                enhancementPrompt = 'Utility Refactor: Rewrite all custom CSS using Tailwind CSS utility classes exclusively. Return raw HTML.';
+            } else if (type === 'charts') {
+                enhancementPrompt = 'Interactive Visualizations: Identify data-heavy areas and inject Chart.js canvas elements with live rendering scripts from CDN. Return raw HTML.';
+            }
+            
+            parts = [{ text: `${enhancementPrompt}\n\nExisting Code:\n${artifact.html}` }];
+        }
 
         const response = await ai.models.generateContent({
-             model: 'gemini-3-flash-preview',
-             contents: [{ role: 'user', parts: [{ text: fullPrompt }] }]
+             model: (type === 'persona' || type === 'file-populate' || type === 'a11y') ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview',
+             contents: [{ role: 'user', parts }]
         });
         
         const newHtml = response.text?.replace(/```html|```/g, '').trim() || artifact.html;
@@ -334,6 +247,42 @@ Required JSON Output Format (stream ONE object per line):
     }
   };
 
+  const handleRefresh = async () => {
+    if (focusedArtifactIndex === null || currentSessionIndex === -1 || isLoading) return;
+    const currentSession = sessions[currentSessionIndex];
+    const artifact = currentSession.artifacts[focusedArtifactIndex];
+    setIsLoading(true);
+    
+    setSessions(prev => prev.map((sess, i) => i === currentSessionIndex ? {
+        ...sess,
+        artifacts: sess.artifacts.map((art, j) => j === focusedArtifactIndex ? { ...art, html: '', status: 'streaming' } : art)
+    } : sess));
+
+    try {
+        const ai = getAiClient();
+        const prompt = `Regenerate this Dashboard UI fresh based on: "${currentSession.prompt}". Theme Concept: ${artifact.styleName}. Return raw HTML only.`;
+        const responseStream = await ai.models.generateContentStream({
+            model: 'gemini-3-flash-preview',
+            contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        });
+        let acc = '';
+        for await (const chunk of responseStream) {
+            if (chunk.text) {
+                acc += chunk.text;
+                setSessions(prev => prev.map(s => s.id === currentSession.id ? {
+                    ...s,
+                    artifacts: s.artifacts.map(a => a.id === artifact.id ? { ...a, html: acc } : a)
+                } : s));
+            }
+        }
+        const final = acc.replace(/```html|```/g, '').trim();
+        setSessions(prev => prev.map(s => s.id === currentSession.id ? {
+            ...s,
+            artifacts: s.artifacts.map(a => a.id === artifact.id ? { ...a, html: final, status: 'complete' } : a)
+        } : s));
+    } catch (e) { console.error(e); } finally { setIsLoading(false); }
+  };
+
   const handleIterate = async () => {
       if (focusedArtifactIndex === null || currentSessionIndex === -1 || !iterationInput.trim() || isLoading) return;
       const instruction = iterationInput.trim();
@@ -345,271 +294,53 @@ Required JSON Output Format (stream ONE object per line):
           const currentSession = sessions[currentSessionIndex];
           const artifact = currentSession.artifacts[focusedArtifactIndex];
 
-          const prompt = `
-You are a senior Dashboard Engineer. Modify the existing Dashboard UI based on the request.
-Existing Code:
-${artifact.html}
-
-User Request: "${instruction}"
-
-Instructions:
-1. Maintain the dashboard structure (Sidebar/Header/Grid).
-2. Apply the requested changes precisely.
-3. If asking for data/charts, use Chart.js via CDN.
-4. Return ONLY the complete updated HTML/CSS. No markdown.
-          `.trim();
-
+          const prompt = `Senior Frontend Engineer. Modify the following dashboard interface.\nExisting Code:\n${artifact.html}\nUser Request: "${instruction}"\nPerform the modification while preserving the layout and professional design language. Return only the complete updated raw HTML.`;
           const responseStream = await ai.models.generateContentStream({
               model: 'gemini-3-pro-preview',
               contents: [{ role: 'user', parts: [{ text: prompt }] }]
           });
 
-          let accumulatedHtml = '';
+          let acc = '';
           for await (const chunk of responseStream) {
-              if (typeof chunk.text === 'string') {
-                  accumulatedHtml += chunk.text;
-                  setSessions(prev => prev.map((sess, i) => 
-                      i === currentSessionIndex ? {
-                          ...sess,
-                          artifacts: sess.artifacts.map((art, j) => 
-                              j === focusedArtifactIndex ? { ...art, html: accumulatedHtml, status: 'streaming' } : art
-                          )
-                      } : sess
-                  ));
+              if (chunk.text) {
+                  acc += chunk.text;
+                  setSessions(prev => prev.map(s => s.id === currentSession.id ? {
+                      ...s,
+                      artifacts: s.artifacts.map(a => a.id === artifact.id ? { ...a, html: acc, status: 'streaming' } : a)
+                  } : s));
               }
           }
-          
-          let finalHtml = accumulatedHtml.replace(/```html|```/g, '').trim();
-          setSessions(prev => prev.map((sess, i) => 
-              i === currentSessionIndex ? {
-                  ...sess,
-                  artifacts: sess.artifacts.map((art, j) => 
-                              j === focusedArtifactIndex ? { ...art, html: finalHtml, originalHtml: finalHtml, status: 'complete' } : art
-                  )
-              } : sess
-          ));
-      } catch (e) {
-          console.error("Iteration failed", e);
-      } finally {
-          setIsLoading(false);
-      }
-  };
-
-  const confirmClearHistory = () => {
-      clearSessions();
-      setSessions([]);
-      setCurrentSessionIndex(-1);
-      setFocusedArtifactIndex(null);
-      setDrawerState(s => ({...s, isOpen: false}));
-      setIsConfirmingClear(false);
+          const final = acc.replace(/```html|```/g, '').trim();
+          setSessions(prev => prev.map(s => s.id === currentSession.id ? {
+              ...s,
+              artifacts: s.artifacts.map(a => a.id === artifact.id ? { ...a, html: final, status: 'complete' } : a)
+          } : s));
+      } catch (e) { console.error(e); } finally { setIsLoading(false); }
   };
 
   const handleDeleteSession = (id: string, e: React.MouseEvent) => {
       e.stopPropagation();
       setSessions(prev => {
-          const newSessions = prev.filter(s => s.id !== id);
-          if (newSessions.length === 0) setCurrentSessionIndex(-1);
-          else if (currentSessionIndex >= newSessions.length) setCurrentSessionIndex(newSessions.length - 1);
-          return newSessions;
+          const filtered = prev.filter(s => s.id !== id);
+          if (filtered.length === 0) setCurrentSessionIndex(-1);
+          else if (currentSessionIndex >= filtered.length) setCurrentSessionIndex(filtered.length - 1);
+          return filtered;
       });
   };
 
-  // --- Drawer Openers ---
-
-  const handleShowCode = () => {
-      const currentSession = sessions[currentSessionIndex];
-      if (currentSession && focusedArtifactIndex !== null) {
-          const artifact = currentSession.artifacts[focusedArtifactIndex];
-          setDrawerState({ isOpen: true, mode: 'code', title: 'Edit Source Code', data: artifact.originalHtml || artifact.html, error: null });
-      }
-  };
-
-  const handleShowLayouts = () => setDrawerState({ isOpen: true, mode: 'layouts', title: 'Layout Options', data: null, error: null });
-  const handleShowSettings = () => setDrawerState({ isOpen: true, mode: 'settings', title: 'Configuration', data: null, error: null });
-  const handleShowEnhance = () => setDrawerState({ isOpen: true, mode: 'enhance', title: 'Enhance Dashboard', data: null, error: null });
-  const handleShowHistory = () => setDrawerState({ isOpen: true, mode: 'history', title: 'Recent Dashboards', data: null, error: null });
-  const handleShowImport = () => setDrawerState({ isOpen: true, mode: 'import', title: 'Import Dashboard', data: null, error: null });
-  const handleShowTemplates = () => setDrawerState({ isOpen: true, mode: 'templates', title: 'Dashboard Templates', data: null, error: null });
-  const handleShowFormBuilder = () => setDrawerState({ isOpen: true, mode: 'form', title: 'Build Dashboard', data: null, error: null });
-  const handleShowProjects = () => setDrawerState({ isOpen: true, mode: 'projects', title: 'My Projects', data: null, error: null });
-
-  const handleUpdateSession = (id: string, updates: { name?: string; tags?: string[] }) => {
-      setSessions(prev => prev.map(session => 
-          session.id === id ? { ...session, ...updates } : session
-      ));
-  };
-
-  const handleImportDashboard = (html: string, fileName: string) => {
-      const sessionId = generateId();
-      const artifact: Artifact = {
-          id: `${sessionId}_0`,
-          styleName: fileName.replace('.html', ''),
-          html: html,
-          originalHtml: html,
-          status: 'complete',
-      };
-
-      const newSession: Session = {
-          id: sessionId,
-          prompt: `Imported: ${fileName}`,
-          timestamp: Date.now(),
-          artifacts: [artifact]
-      };
-
-      setSessions(prev => [...prev, newSession]);
-      setCurrentSessionIndex(prev => prev + 1);
-      setFocusedArtifactIndex(0);
-      setDrawerState(s => ({ ...s, isOpen: false }));
-  };
-
-  const handleSelectTemplate = (template: any) => {
-      const sessionId = generateId();
-      const artifact: Artifact = {
-          id: `${sessionId}_0`,
-          styleName: template.name,
-          html: template.html,
-          originalHtml: template.html,
-          status: 'complete',
-      };
-
-      const newSession: Session = {
-          id: sessionId,
-          prompt: `Template: ${template.name}`,
-          timestamp: Date.now(),
-          artifacts: [artifact]
-      };
-
-      setSessions(prev => [...prev, newSession]);
-      setCurrentSessionIndex(prev => prev + 1);
-      setFocusedArtifactIndex(0);
-      setDrawerState(s => ({ ...s, isOpen: false }));
-  };
-
-  const handleGenerateFromForm = async (specs: DashboardSpecs) => {
-      setIsLoading(true);
-      setDrawerState(s => ({ ...s, isOpen: false }));
-
-      const sessionId = generateId();
-      const placeholderArtifact: Artifact = {
-          id: `${sessionId}_0`,
-          styleName: specs.name,
-          html: '',
-          status: 'streaming',
-      };
-
-      const newSession: Session = {
-          id: sessionId,
-          prompt: `Form: ${specs.name}`,
-          timestamp: Date.now(),
-          artifacts: [placeholderArtifact]
-      };
-
-      setSessions(prev => [...prev, newSession]);
-      setCurrentSessionIndex(prev => prev + 1);
-      setFocusedArtifactIndex(0);
-
-      try {
-          const ai = getAiClient();
-
-          const metricsText = specs.metrics.map(m => `${m.label}: ${m.value}`).join(', ');
-          const chartsText = specs.charts.map(c => `${c.type} chart for ${c.title}`).join(', ');
-          const layoutType = specs.layout === 'sidebar' ? 'sidebar navigation' : 'top navigation bar';
-
-          const prompt = `
-Create a professional ${specs.category} dashboard with the following specifications:
-
-Dashboard Name: ${specs.name}
-Layout: ${layoutType}
-Color Scheme: ${specs.colorScheme}
-
-Key Metrics to display:
-${metricsText}
-
-Charts to include:
-${chartsText}
-
-${specs.tables ? 'Include a data table with sample rows.' : ''}
-
-Requirements:
-1. Create a complete, production-ready HTML file with inline CSS
-2. Use modern, clean design with proper spacing
-3. Make it responsive
-4. Include the specified metrics as cards/widgets
-5. Include the specified charts (use Chart.js CDN for interactive charts OR create CSS-only chart placeholders)
-6. Apply the ${specs.colorScheme} color scheme appropriately
-7. Return ONLY raw HTML/CSS. No markdown blocks.
-          `.trim();
-
-          const responseStream = await ai.models.generateContentStream({
-              model: 'gemini-3-flash-preview',
-              contents: [{ parts: [{ text: prompt }], role: "user" }],
-          });
-
-          let accumulatedHtml = '';
-          for await (const chunk of responseStream) {
-              if (typeof chunk.text === 'string') {
-                  accumulatedHtml += chunk.text;
-                  setSessions(prev => prev.map(sess => sess.id === sessionId ? {
-                      ...sess,
-                      artifacts: sess.artifacts.map(art => art.id === placeholderArtifact.id ? { ...art, html: accumulatedHtml } : art)
-                  } : sess));
-              }
-          }
-
-          let finalHtml = accumulatedHtml.replace(/```html|```/g, '').trim();
-          setSessions(prev => prev.map(sess => sess.id === sessionId ? {
-              ...sess,
-              artifacts: sess.artifacts.map(art => art.id === placeholderArtifact.id ? { ...art, html: finalHtml, originalHtml: finalHtml, status: 'complete' } : art)
-          } : sess));
-      } catch (e) {
-          console.error("Form generation failed", e);
-      } finally {
-          setIsLoading(false);
-      }
-  };
-
-  const handleShowExport = () => {
-      if (focusedArtifactIndex === null || currentSessionIndex === -1) return;
-      const currentSession = sessions[currentSessionIndex];
-      const artifact = currentSession.artifacts[focusedArtifactIndex];
-      setDrawerState({ 
-          isOpen: true, 
-          mode: 'export', 
-          title: 'Export Dashboard', 
-          data: { html: artifact.html, name: artifact.styleName || `dashboard-${artifact.id}` }, 
-          error: null 
-      });
-  };
-
-  const handleDownload = () => {
-    if (focusedArtifactIndex === null || currentSessionIndex === -1) return;
-    const currentSession = sessions[currentSessionIndex];
-    const artifact = currentSession.artifacts[focusedArtifactIndex];
-    const blob = new Blob([artifact.html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `dashgen-${artifact.id}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleCopyCode = () => {
-      if (focusedArtifactIndex === null || currentSessionIndex === -1) return;
-      const currentSession = sessions[currentSessionIndex];
-      const artifact = currentSession.artifacts[focusedArtifactIndex];
-      navigator.clipboard.writeText(artifact.html).then(() => {
-          setCopyButtonText('Copied!');
-          setTimeout(() => setCopyButtonText('Copy Code'), 2000);
-      });
+  const confirmClearHistory = () => {
+    clearSessions();
+    setSessions([]);
+    setCurrentSessionIndex(-1);
+    setFocusedArtifactIndex(null);
+    setDrawerState(s => ({...s, isOpen: false}));
+    setIsConfirmingClear(false);
   };
 
   const handleSendMessage = useCallback(async (manualPrompt?: string) => {
     const promptToUse = manualPrompt || inputValue;
-    const trimmedInput = promptToUse.trim();
-    if (!trimmedInput || isLoading) return;
+    const trimmed = promptToUse.trim();
+    if (!trimmed || isLoading) return;
     if (!manualPrompt) setInputValue('');
 
     setIsLoading(true);
@@ -623,7 +354,7 @@ Requirements:
 
     const newSession: Session = {
         id: sessionId,
-        prompt: trimmedInput,
+        prompt: trimmed,
         timestamp: Date.now(),
         artifacts: placeholderArtifacts
     };
@@ -634,115 +365,103 @@ Requirements:
 
     try {
         const ai = getAiClient();
-
-        let frameworkContext = "";
-        if (settings.framework === 'tailwind') frameworkContext = " Use Tailwind CSS via CDN.";
-        else if (settings.framework === 'react-mui') frameworkContext = " Use React and MUI via CDN.";
-        else if (settings.framework === 'bootstrap') frameworkContext = " Use Bootstrap 5.";
-        else if (settings.framework === 'foundation') frameworkContext = " Use Foundation 6.";
-        else frameworkContext = " Use vanilla CSS.";
-
-        const stylePrompt = `Generate 3 distinct Dashboard Concept names (e.g. "Minimal Analytics", "Dark Command Center") for: "${trimmedInput}". Return raw JSON array of 3 strings.`.trim();
-        const styleResponse = await ai.models.generateContent({
+        const stylePrompt = `Generate 3 distinct, high-end UI design concept names for a dashboard dashboard based on: "${trimmed}". Concepts should be descriptive (e.g. "Dark Mode Cyberpunk", "Swiss Minimalist", "Glassmorphic Analytical"). Return ONLY a raw JSON array of 3 strings.`;
+        const styleRes = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: { role: 'user', parts: [{ text: stylePrompt }] }
         });
 
-        let generatedStyles: string[] = JSON.parse(styleResponse.text?.match(/\[[\s\S]*\]/)?.[0] || '["Concept A", "Concept B", "Concept C"]');
-        generatedStyles = generatedStyles.slice(0, 3);
+        let styles: string[] = ["Modern Dashboard", "Enterprise Grid", "Minimalist Analytics"];
+        try {
+            const parsedStyles = JSON.parse(styleRes.text?.match(/\[[\s\S]*\]/)?.[0] || '[]');
+            if (Array.isArray(parsedStyles) && parsedStyles.length === 3) {
+                styles = parsedStyles;
+            }
+        } catch(e) {}
 
         setSessions(prev => prev.map(s => s.id === sessionId ? {
             ...s,
-            artifacts: s.artifacts.map((art, i) => ({ ...art, styleName: generatedStyles[i] }))
+            artifacts: s.artifacts.map((art, i) => ({ ...art, styleName: styles[i] }))
         } : s));
 
-        const generateArtifact = async (artifact: Artifact, styleInstruction: string) => {
-            try {
-                // FORCE DASHBOARD STRUCTURE IN PROMPT
-                const prompt = `
-You are an expert Frontend Engineer specializing in DASHBOARDS.
-Create a complete, high-fidelity DASHBOARD INTERFACE for: "${trimmedInput}".
-Concept/Style: ${styleInstruction}.
-Framework: ${frameworkContext}
+        const generate = async (artifact: Artifact, style: string) => {
+            const frameworkContext = settings.framework !== 'vanilla' ? `Using ${settings.framework} for component patterns.` : "Using vanilla HTML/CSS.";
+            const p = `Expert Frontend Developer. Create a high-fidelity, polished dashboard for: "${trimmed}". 
+            Style Concept: ${style}. 
+            Framework Context: ${frameworkContext}
+            Include: 
+            - Sidebar and Top Navigation
+            - KPI cards with icons
+            - A professional data table
+            - Interactive chart area placeholders
+            - Realistic dummy metrics
+            Return ONLY complete, standalone raw HTML.`;
 
-Requirements:
-1. **Layout**: MUST have a sidebar (navigation) and/or top header, and a main content area.
-2. **Components**: Include Stats Cards (KPIs), Data Tables, and placeholders for Charts (or CSS-only charts).
-3. **Data**: Use realistic dummy data for the context (e.g. if SaaS, use MRR, Churn; if Medical, use Patients, Heart Rate).
-4. **Design**: Modern, clean, professional. Use consistent spacing and typography.
-5. **Output**: Return ONLY raw HTML/CSS (and JS if needed for interactivity). NO markdown blocks.
-                `.trim();
-                
-                const responseStream = await ai.models.generateContentStream({
-                    model: 'gemini-3-flash-preview',
-                    contents: [{ parts: [{ text: prompt }], role: "user" }],
-                });
-
-                let accumulatedHtml = '';
-                for await (const chunk of responseStream) {
-                    if (typeof chunk.text === 'string') {
-                        accumulatedHtml += chunk.text;
-                        setSessions(prev => prev.map(sess => sess.id === sessionId ? {
-                            ...sess,
-                            artifacts: sess.artifacts.map(art => art.id === artifact.id ? { ...art, html: accumulatedHtml } : art)
-                        } : sess));
-                    }
+            const stream = await ai.models.generateContentStream({
+                model: 'gemini-3-flash-preview',
+                contents: [{ parts: [{ text: p }], role: "user" }],
+            });
+            let acc = '';
+            for await (const chunk of stream) {
+                if (chunk.text) {
+                    acc += chunk.text;
+                    setSessions(prev => prev.map(s => s.id === sessionId ? {
+                        ...s,
+                        artifacts: s.artifacts.map(a => a.id === artifact.id ? { ...a, html: acc } : a)
+                    } : s));
                 }
-                
-                let finalHtml = accumulatedHtml.replace(/```html|```/g, '').trim();
-                setSessions(prev => prev.map(sess => sess.id === sessionId ? {
-                    ...sess,
-                    artifacts: sess.artifacts.map(art => art.id === artifact.id ? { ...art, html: finalHtml, originalHtml: finalHtml, status: 'complete' } : art)
-                } : sess));
-            } catch (e: any) {
-                setSessions(prev => prev.map(sess => sess.id === sessionId ? {
-                    ...sess,
-                    artifacts: sess.artifacts.map(art => art.id === artifact.id ? { ...art, html: `Error: ${e.message}`, status: 'error' } : art)
-                } : sess));
             }
+            const final = acc.replace(/```html|```/g, '').trim();
+            setSessions(prev => prev.map(s => s.id === sessionId ? {
+                ...s,
+                artifacts: s.artifacts.map(a => a.id === artifact.id ? { ...a, html: final, status: 'complete' } : a)
+            } : s));
         };
 
-        await Promise.all(placeholderArtifacts.map((art, i) => generateArtifact(art, generatedStyles[i])));
+        await Promise.all(placeholderArtifacts.map((art, i) => generate(art, styles[i])));
     } catch (e) { console.error(e); } finally { setIsLoading(false); }
   }, [inputValue, isLoading, settings]);
 
-  const handleSurpriseMe = () => {
-      const currentPrompt = placeholders[placeholderIndex];
-      setInputValue(currentPrompt);
-      handleSendMessage(currentPrompt);
-  };
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter' && !isLoading) { event.preventDefault(); handleSendMessage(); }
-    else if (event.key === 'Tab' && !inputValue && !isLoading) { event.preventDefault(); setInputValue(placeholders[placeholderIndex]); }
-  };
-
-  const handleIterationKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === 'Enter' && !isLoading) { event.preventDefault(); handleIterate(); }
-  };
-
-  const nextItem = useCallback(() => {
-      if (focusedArtifactIndex !== null) { if (focusedArtifactIndex < 2) setFocusedArtifactIndex(focusedArtifactIndex + 1); }
-      else if (currentSessionIndex < sessions.length - 1) setCurrentSessionIndex(currentSessionIndex + 1);
-  }, [currentSessionIndex, sessions.length, focusedArtifactIndex]);
-
-  const prevItem = useCallback(() => {
-      if (focusedArtifactIndex !== null) { if (focusedArtifactIndex > 0) setFocusedArtifactIndex(focusedArtifactIndex - 1); }
-      else if (currentSessionIndex > 0) setCurrentSessionIndex(currentSessionIndex - 1);
-  }, [currentSessionIndex, focusedArtifactIndex]);
-
   const jumpToSession = (index: number) => {
-      setCurrentSessionIndex(index);
-      setFocusedArtifactIndex(null);
-      setDrawerState(s => ({ ...s, isOpen: false }));
+    setCurrentSessionIndex(index);
+    setFocusedArtifactIndex(null);
+    setDrawerState(s => ({ ...s, isOpen: false }));
+  };
+
+  const handleShowCode = () => {
+    const s = sessions[currentSessionIndex];
+    if (s && focusedArtifactIndex !== null) {
+        setDrawerState({ isOpen: true, mode: 'code', title: 'Edit Source', data: s.artifacts[focusedArtifactIndex].html, error: null });
+    }
+  };
+
+  const handleShowLayouts = () => setDrawerState({ isOpen: true, mode: 'layouts', title: 'Layouts', data: null, error: null });
+  const handleShowSettings = () => setDrawerState({ isOpen: true, mode: 'settings', title: 'Settings', data: null, error: null });
+  const handleShowEnhance = () => setDrawerState({ isOpen: true, mode: 'enhance', title: 'Enhance', data: null, error: null });
+  const handleShowHistory = () => setDrawerState({ isOpen: true, mode: 'history', title: 'History', data: null, error: null });
+
+  const handleDownload = () => {
+    if (focusedArtifactIndex === null || currentSessionIndex === -1) return;
+    const art = sessions[currentSessionIndex].artifacts[focusedArtifactIndex];
+    const blob = new Blob([art.html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `dashboard-${art.id}.html`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCopyCode = () => {
+    if (focusedArtifactIndex === null || currentSessionIndex === -1) return;
+    const art = sessions[currentSessionIndex].artifacts[focusedArtifactIndex];
+    navigator.clipboard.writeText(art.html).then(() => {
+        setCopyButtonText('Copied!');
+        setTimeout(() => setCopyButtonText('Copy Code'), 2000);
+    });
   };
 
   const hasStarted = sessions.length > 0 || isLoading;
   const currentSession = sessions[currentSessionIndex];
   const focusedArtifact = (currentSession && focusedArtifactIndex !== null) ? currentSession.artifacts[focusedArtifactIndex] : null;
-
-  let canGoBack = (focusedArtifactIndex !== null ? focusedArtifactIndex > 0 : currentSessionIndex > 0);
-  let canGoForward = (focusedArtifactIndex !== null ? focusedArtifactIndex < 2 : currentSessionIndex < sessions.length - 1);
 
   return (
     <>
@@ -750,21 +469,20 @@ Requirements:
             isOpen={isConfirmingClear}
             title="Clear All History?"
             message="This will permanently delete all your generated dashboards. This action cannot be undone."
-            confirmText="Delete Everything"
-            cancelText="Cancel"
-            onConfirm={confirmClearHistory}
-            onCancel={() => setIsConfirmingClear(false)}
+            confirmText="Delete Everything" cancelText="Cancel"
+            onConfirm={confirmClearHistory} onCancel={() => setIsConfirmingClear(false)}
         />
 
-        <PreviewModal
-            item={previewItem}
-            onClose={() => setPreviewItem(null)}
-        />
+        <PreviewModal item={previewItem} onClose={() => setPreviewItem(null)} />
+
+        {focusedArtifactIndex !== null && (
+            <button className="floating-back-btn" onClick={() => setFocusedArtifactIndex(null)} title="Back to Grid">
+                <ArrowLeftIcon /> <span>Back</span>
+            </button>
+        )}
 
         <div className="global-controls">
-            <button className="icon-btn" onClick={handleShowProjects} title="My Projects"><FolderIcon /></button>
-            <div className="divider"></div>
-            <button className="icon-btn" onClick={handleShowImport} title="Import Dashboard"><UploadIcon /></button>
+            <button className="icon-btn" onClick={handleShowHistory} title="History"><HistoryIcon /></button>
             <div className="divider"></div>
             <button className="icon-btn" disabled={!canUndo} onClick={undo} title="Undo"><UndoIcon /></button>
             <button className="icon-btn" disabled={!canRedo} onClick={redo} title="Redo"><RedoIcon /></button>
@@ -772,108 +490,36 @@ Requirements:
             <button className="icon-btn" onClick={handleShowSettings} title="Settings"><SettingsIcon /></button>
         </div>
 
-        <SideDrawer 
-            isOpen={drawerState.isOpen} 
-            onClose={() => setDrawerState(s => ({...s, isOpen: false}))} 
-            title={drawerState.title}
-            position={(drawerState.mode === 'history' || drawerState.mode === 'projects') ? 'left' : 'right'}
-        >
-            {drawerState.error && <div className="drawer-error">{drawerState.error}</div>}
-            
-            {drawerState.mode === 'history' && (
-                <HistoryPanel 
-                    sessions={sessions}
-                    currentSessionIndex={currentSessionIndex}
-                    onJumpToSession={jumpToSession}
-                    onDeleteSession={handleDeleteSession}
-                />
-            )}
-
-            {drawerState.mode === 'projects' && (
-                <ProjectsPanel 
-                    sessions={sessions}
-                    currentSessionIndex={currentSessionIndex}
-                    onJumpToSession={jumpToSession}
-                    onDeleteSession={handleDeleteSession}
-                    onUpdateSession={handleUpdateSession}
-                />
-            )}
-            
-            {drawerState.mode === 'settings' && (
-                <SettingsPanel 
-                    settings={settings}
-                    onSettingsChange={setSettings}
-                    onClearHistoryRequest={() => setIsConfirmingClear(true)}
-                />
-            )}
-
-            {drawerState.mode === 'enhance' && (
-                <EnhancePanel onEnhance={handleEnhance} />
-            )}
-            
-            {drawerState.mode === 'import' && (
-                <ImportPanel onImport={handleImportDashboard} />
-            )}
-
-            {drawerState.mode === 'templates' && (
-                <TemplatesPanel 
-                    templates={DASHBOARD_TEMPLATES}
-                    onSelectTemplate={handleSelectTemplate}
-                    onPreview={setPreviewItem}
-                />
-            )}
-
-            {drawerState.mode === 'form' && (
-                <DashboardFormBuilder 
-                    onGenerate={handleGenerateFromForm}
-                    isGenerating={isLoading}
-                />
-            )}
-
-            {drawerState.mode === 'export' && drawerState.data && (
-                <ExportPanel 
-                    currentHtml={drawerState.data.html}
-                    dashboardName={drawerState.data.name}
-                />
-            )}
-            
-            {drawerState.mode === 'code' && (
-                <CodeEditor initialValue={drawerState.data} onSave={updateArtifactCode} />
-            )}
-            
-            {drawerState.mode === 'variations' && (
-                <VariationsPanel 
-                    variations={componentVariations}
-                    isLoading={isLoading}
-                    onApply={applyVariation}
-                    onPreview={setPreviewItem}
-                    onLoadMore={handleLoadMoreVariations}
-                />
-            )}
-            
-            {drawerState.mode === 'layouts' && (
-                <LayoutsPanel 
-                    layouts={LAYOUT_OPTIONS}
-                    focusedArtifact={focusedArtifact}
-                    onApply={applyLayout}
-                    onPreview={handlePreviewLayout}
-                />
-            )}
+        <SideDrawer isOpen={drawerState.isOpen} onClose={() => setDrawerState(s => ({...s, isOpen: false}))} title={drawerState.title} position={drawerState.mode === 'history' ? 'left' : 'right'}>
+            {drawerState.mode === 'history' && <HistoryPanel sessions={sessions} currentSessionIndex={currentSessionIndex} onJumpToSession={jumpToSession} onDeleteSession={handleDeleteSession} />}
+            {drawerState.mode === 'settings' && <SettingsPanel settings={settings} onSettingsChange={setSettings} onClearHistoryRequest={() => setIsConfirmingClear(true)} />}
+            {drawerState.mode === 'enhance' && <EnhancePanel onEnhance={handleEnhance} />}
+            {drawerState.mode === 'code' && <CodeEditor initialValue={drawerState.data} onSave={(v) => {
+                setSessions(prev => prev.map((sess, i) => i === currentSessionIndex ? { ...sess, artifacts: sess.artifacts.map((art, j) => j === focusedArtifactIndex ? { ...art, html: v } : art) } : sess));
+            }} />}
+            {drawerState.mode === 'layouts' && <LayoutsPanel layouts={LAYOUT_OPTIONS} focusedArtifact={focusedArtifact} onApply={(lo) => {
+                if (focusedArtifactIndex === null) return;
+                const base = focusedArtifact.originalHtml || focusedArtifact.html;
+                const wrapped = lo.name === "Standard Sidebar" ? base : `<style>${lo.css}</style><div class="layout-container">${base}</div>`;
+                setSessions(prev => prev.map((s, i) => i === currentSessionIndex ? { ...s, artifacts: s.artifacts.map((a, j) => j === focusedArtifactIndex ? { ...a, html: wrapped, originalHtml: base, status: 'complete' } : a) } : s));
+                setDrawerState(s => ({...s, isOpen: false}));
+            }} onPreview={(e, lo) => {
+                e.stopPropagation();
+                const base = focusedArtifact?.originalHtml || focusedArtifact?.html || '';
+                const wrapped = lo.name === "Standard Sidebar" ? base : `<style>${lo.css}</style><div class="layout-container">${base}</div>`;
+                setPreviewItem({ name: lo.name, html: wrapped });
+            }} />}
         </SideDrawer>
 
         <div className="immersive-app">
-            <DottedGlowBackground gap={24} speedScale={0.5} />
+            <DottedGlowBackground />
             <div className={`stage-container ${focusedArtifactIndex !== null ? 'mode-focus' : 'mode-split'}`}>
                  {!hasStarted && (
                      <div className="empty-state">
                          <div className="empty-content">
                              <h1>DashGen</h1>
-                             <p>Generate professional analytics dashboards in seconds</p>
-                             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                                 <button className="surprise-button" onClick={handleSurpriseMe} disabled={isLoading}><SparklesIcon /> Surprise Me</button>
-                                 <button className="surprise-button" onClick={handleShowFormBuilder} disabled={isLoading}>📝 Form Builder</button>
-                                 <button className="surprise-button" onClick={handleShowTemplates} disabled={isLoading}><FileIcon /> Browse Templates</button>
-                             </div>
+                             <p>Generate high-fidelity dashboards instantly</p>
+                             <button className="surprise-button" onClick={() => handleSendMessage(placeholders[placeholderIndex])} disabled={isLoading}><SparklesIcon /> Surprise Me</button>
                          </div>
                      </div>
                  )}
@@ -887,46 +533,30 @@ Requirements:
                     </div>
                 ))}
             </div>
-             {canGoBack && <button className="nav-handle left" onClick={prevItem}><ArrowLeftIcon /></button>}
-             {canGoForward && <button className="nav-handle right" onClick={nextItem}><ArrowRightIcon /></button>}
             
             <div className={`action-bar ${focusedArtifactIndex !== null ? 'visible' : ''}`}>
                  <div className="iteration-chat-container">
                     <div className={`iteration-wrapper ${isLoading ? 'loading' : ''}`}>
-                        <input ref={iterationInputRef} type="text" placeholder="Refine dashboard (e.g. 'Add a dark mode toggle', 'Make charts interactive')..." value={iterationInput} onChange={handleIterationInputChange} onKeyDown={handleIterationKeyDown} disabled={isLoading} />
+                        <input ref={iterationInputRef} type="text" placeholder="Refine dashboard..." value={iterationInput} onChange={handleIterationInputChange} onKeyDown={(e) => e.key === 'Enter' && handleIterate()} disabled={isLoading} />
                         <button className="iteration-send-btn" onClick={handleIterate} disabled={isLoading || !iterationInput.trim()}>
                             {isLoading ? <ThinkingIcon /> : <ArrowUpIcon />}
                         </button>
                     </div>
                  </div>
-                 <div className="active-prompt-label">{currentSession?.prompt}</div>
                  <div className="action-buttons">
                     <button onClick={() => setFocusedArtifactIndex(null)}><GridIcon /> Grid</button>
+                    <button onClick={handleRefresh} disabled={isLoading}><RefreshIcon /> Refresh</button>
                     <button onClick={handleShowEnhance}><WandIcon /> Enhance</button>
-                    <button className="variations-btn-pulse" onClick={handleGenerateVariations} disabled={isLoading} title="Generate new dashboard concepts"><SparklesIcon /> Variations</button>
                     <button onClick={handleShowLayouts}><LayoutIcon /> Layouts</button>
                     <button onClick={handleShowCode}><CodeIcon /> Code</button>
                     <button onClick={handleCopyCode}><CopyIcon /> {copyButtonText}</button>
-                    <button onClick={handleShowExport}><DownloadIcon /> Export</button>
+                    <button onClick={handleDownload}><DownloadIcon /> Save</button>
                  </div>
             </div>
 
             <div className={`floating-input-container ${focusedArtifactIndex !== null ? 'hidden' : ''}`}>
                 <div className={`input-wrapper ${isLoading ? 'loading' : ''}`}>
-                    {!inputValue && !isLoading && (
-                        <div className="animated-placeholder" key={placeholderIndex}>
-                            <span className="placeholder-text">{placeholders[placeholderIndex]}</span>
-                            <span className="tab-hint">Tab</span>
-                        </div>
-                    )}
-                    {!isLoading ? (
-                        <input ref={inputRef} type="text" value={inputValue} onChange={handleInputChange} onKeyDown={handleKeyDown} />
-                    ) : (
-                        <div className="input-generating-label">
-                            <span className="generating-prompt-text">{currentSession?.prompt}</span>
-                            <ThinkingIcon />
-                        </div>
-                    )}
+                    <input ref={inputRef} type="text" placeholder={placeholders[placeholderIndex]} value={inputValue} onChange={handleInputChange} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} />
                     <button className="send-button" onClick={() => handleSendMessage()} disabled={isLoading || !inputValue.trim()}><ArrowUpIcon /></button>
                 </div>
             </div>

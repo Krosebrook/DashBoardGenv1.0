@@ -43,6 +43,7 @@ const LayoutsPanel: React.FC<LayoutsPanelProps> = ({ layouts, focusedArtifact, o
         }
 
         // 3. Extract content from <body> tags including attributes (classes, styles)
+        // We look for any attributes on the body tag to ensure the artifact's theme/logic persists
         const bodyRegex = /<body([^>]*)>([\s\S]*?)<\/body>/i;
         const bodyMatch = bodyRegex.exec(baseHtml);
         
@@ -50,7 +51,7 @@ const LayoutsPanel: React.FC<LayoutsPanelProps> = ({ layouts, focusedArtifact, o
             bodyAttrs = bodyMatch[1];
             bodyContent = bodyMatch[2];
         } else {
-            // Fallback: strip structural tags
+            // Fallback: strip structural tags if not found
             bodyContent = baseHtml.replace(styleRegex, '')
                                   .replace(headRegex, '')
                                   .replace(/<!DOCTYPE html>/i, '')
@@ -60,7 +61,9 @@ const LayoutsPanel: React.FC<LayoutsPanelProps> = ({ layouts, focusedArtifact, o
 
         // 4. Construct the clean preview document
         // We ensure body has overflow: hidden to prevent scrollbars in thumbnails.
-        // We wrap content in .layout-container to support layout CSS scoping.
+        // The layout CSS is injected AFTER the artifact CSS to ensure correct overriding.
+        const isDefault = layout.name === "Standard Sidebar";
+
         return `
             <!DOCTYPE html>
             <html>
@@ -68,21 +71,19 @@ const LayoutsPanel: React.FC<LayoutsPanelProps> = ({ layouts, focusedArtifact, o
                 ${headContent}
                 <style>
                     /* Reset & Base Preview Styles */
-                    body { margin: 0; padding: 0; overflow: hidden; }
+                    body { margin: 0; padding: 0; overflow: hidden; background: transparent; }
                     /* Scrollbar hiding for cleaner thumbnails */
                     ::-webkit-scrollbar { width: 0px; background: transparent; }
                     
                     /* Extracted Artifact Styles */
                     ${styleContent}
 
-                    /* Layout Styles */
-                    ${layout.css}
+                    /* Layout-specific overrides (only applied if not the default layout) */
+                    ${!isDefault ? layout.css : ''}
                 </style>
             </head>
             <body ${bodyAttrs}>
-                <div class="layout-container">
-                    ${bodyContent}
-                </div>
+                ${!isDefault ? `<div class="layout-container">${bodyContent}</div>` : bodyContent}
             </body>
             </html>
         `;
