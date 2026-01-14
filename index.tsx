@@ -11,6 +11,7 @@ import ReactDOM from 'react-dom/client';
 
 import { Artifact, Session, ComponentVariation, LayoutOption, GenerationSettings } from './types';
 import { INITIAL_PLACEHOLDERS, LAYOUT_OPTIONS } from './constants';
+import { DASHBOARD_TEMPLATES } from './constants/templates';
 import { generateId, parseJsonStream } from './utils';
 import { useHistory } from './hooks/useHistory';
 import { loadSessions, saveSessions, clearSessions } from './utils/storage';
@@ -29,6 +30,11 @@ import SettingsPanel from './components/drawer/SettingsPanel';
 import EnhancePanel from './components/drawer/EnhancePanel';
 import VariationsPanel from './components/drawer/VariationsPanel';
 import LayoutsPanel from './components/drawer/LayoutsPanel';
+import ImportPanel from './components/drawer/ImportPanel';
+import TemplatesPanel from './components/drawer/TemplatesPanel';
+import ExportPanel from './components/drawer/ExportPanel';
+import DashboardFormBuilder, { DashboardSpecs } from './components/drawer/DashboardFormBuilder';
+import ProjectsPanel from './components/drawer/ProjectsPanel';
 
 import { 
     ThinkingIcon, 
@@ -45,7 +51,10 @@ import {
     UndoIcon,
     RedoIcon,
     SettingsIcon,
-    WandIcon
+    WandIcon,
+    UploadIcon,
+    FileIcon,
+    FolderIcon
 } from './components/Icons';
 
 function App() {
@@ -79,7 +88,7 @@ function App() {
 
   const [drawerState, setDrawerState] = useState<{
       isOpen: boolean;
-      mode: 'code' | 'variations' | 'layouts' | 'settings' | 'enhance' | 'history' | null;
+      mode: 'code' | 'variations' | 'layouts' | 'settings' | 'enhance' | 'history' | 'import' | 'templates' | 'export' | 'form' | 'projects' | null;
       title: string;
       data: any;
       error?: string | null;
@@ -419,6 +428,158 @@ Instructions:
   const handleShowSettings = () => setDrawerState({ isOpen: true, mode: 'settings', title: 'Configuration', data: null, error: null });
   const handleShowEnhance = () => setDrawerState({ isOpen: true, mode: 'enhance', title: 'Enhance Dashboard', data: null, error: null });
   const handleShowHistory = () => setDrawerState({ isOpen: true, mode: 'history', title: 'Recent Dashboards', data: null, error: null });
+  const handleShowImport = () => setDrawerState({ isOpen: true, mode: 'import', title: 'Import Dashboard', data: null, error: null });
+  const handleShowTemplates = () => setDrawerState({ isOpen: true, mode: 'templates', title: 'Dashboard Templates', data: null, error: null });
+  const handleShowFormBuilder = () => setDrawerState({ isOpen: true, mode: 'form', title: 'Build Dashboard', data: null, error: null });
+  const handleShowProjects = () => setDrawerState({ isOpen: true, mode: 'projects', title: 'My Projects', data: null, error: null });
+
+  const handleUpdateSession = (id: string, updates: { name?: string; tags?: string[] }) => {
+      setSessions(prev => prev.map(session => 
+          session.id === id ? { ...session, ...updates } : session
+      ));
+  };
+
+  const handleImportDashboard = (html: string, fileName: string) => {
+      const sessionId = generateId();
+      const artifact: Artifact = {
+          id: `${sessionId}_0`,
+          styleName: fileName.replace('.html', ''),
+          html: html,
+          originalHtml: html,
+          status: 'complete',
+      };
+
+      const newSession: Session = {
+          id: sessionId,
+          prompt: `Imported: ${fileName}`,
+          timestamp: Date.now(),
+          artifacts: [artifact]
+      };
+
+      setSessions(prev => [...prev, newSession]);
+      setCurrentSessionIndex(prev => prev + 1);
+      setFocusedArtifactIndex(0);
+      setDrawerState(s => ({ ...s, isOpen: false }));
+  };
+
+  const handleSelectTemplate = (template: any) => {
+      const sessionId = generateId();
+      const artifact: Artifact = {
+          id: `${sessionId}_0`,
+          styleName: template.name,
+          html: template.html,
+          originalHtml: template.html,
+          status: 'complete',
+      };
+
+      const newSession: Session = {
+          id: sessionId,
+          prompt: `Template: ${template.name}`,
+          timestamp: Date.now(),
+          artifacts: [artifact]
+      };
+
+      setSessions(prev => [...prev, newSession]);
+      setCurrentSessionIndex(prev => prev + 1);
+      setFocusedArtifactIndex(0);
+      setDrawerState(s => ({ ...s, isOpen: false }));
+  };
+
+  const handleGenerateFromForm = async (specs: DashboardSpecs) => {
+      setIsLoading(true);
+      setDrawerState(s => ({ ...s, isOpen: false }));
+
+      const sessionId = generateId();
+      const placeholderArtifact: Artifact = {
+          id: `${sessionId}_0`,
+          styleName: specs.name,
+          html: '',
+          status: 'streaming',
+      };
+
+      const newSession: Session = {
+          id: sessionId,
+          prompt: `Form: ${specs.name}`,
+          timestamp: Date.now(),
+          artifacts: [placeholderArtifact]
+      };
+
+      setSessions(prev => [...prev, newSession]);
+      setCurrentSessionIndex(prev => prev + 1);
+      setFocusedArtifactIndex(0);
+
+      try {
+          const ai = getAiClient();
+
+          const metricsText = specs.metrics.map(m => `${m.label}: ${m.value}`).join(', ');
+          const chartsText = specs.charts.map(c => `${c.type} chart for ${c.title}`).join(', ');
+          const layoutType = specs.layout === 'sidebar' ? 'sidebar navigation' : 'top navigation bar';
+
+          const prompt = `
+Create a professional ${specs.category} dashboard with the following specifications:
+
+Dashboard Name: ${specs.name}
+Layout: ${layoutType}
+Color Scheme: ${specs.colorScheme}
+
+Key Metrics to display:
+${metricsText}
+
+Charts to include:
+${chartsText}
+
+${specs.tables ? 'Include a data table with sample rows.' : ''}
+
+Requirements:
+1. Create a complete, production-ready HTML file with inline CSS
+2. Use modern, clean design with proper spacing
+3. Make it responsive
+4. Include the specified metrics as cards/widgets
+5. Include the specified charts (use Chart.js CDN for interactive charts OR create CSS-only chart placeholders)
+6. Apply the ${specs.colorScheme} color scheme appropriately
+7. Return ONLY raw HTML/CSS. No markdown blocks.
+          `.trim();
+
+          const responseStream = await ai.models.generateContentStream({
+              model: 'gemini-3-flash-preview',
+              contents: [{ parts: [{ text: prompt }], role: "user" }],
+          });
+
+          let accumulatedHtml = '';
+          for await (const chunk of responseStream) {
+              if (typeof chunk.text === 'string') {
+                  accumulatedHtml += chunk.text;
+                  setSessions(prev => prev.map(sess => sess.id === sessionId ? {
+                      ...sess,
+                      artifacts: sess.artifacts.map(art => art.id === placeholderArtifact.id ? { ...art, html: accumulatedHtml } : art)
+                  } : sess));
+              }
+          }
+
+          let finalHtml = accumulatedHtml.replace(/```html|```/g, '').trim();
+          setSessions(prev => prev.map(sess => sess.id === sessionId ? {
+              ...sess,
+              artifacts: sess.artifacts.map(art => art.id === placeholderArtifact.id ? { ...art, html: finalHtml, originalHtml: finalHtml, status: 'complete' } : art)
+          } : sess));
+      } catch (e) {
+          console.error("Form generation failed", e);
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
+  const handleShowExport = () => {
+      if (focusedArtifactIndex === null || currentSessionIndex === -1) return;
+      const currentSession = sessions[currentSessionIndex];
+      const artifact = currentSession.artifacts[focusedArtifactIndex];
+      setDrawerState({ 
+          isOpen: true, 
+          mode: 'export', 
+          title: 'Export Dashboard', 
+          data: { html: artifact.html, name: artifact.styleName || `dashboard-${artifact.id}` }, 
+          error: null 
+      });
+  };
 
   const handleDownload = () => {
     if (focusedArtifactIndex === null || currentSessionIndex === -1) return;
@@ -601,7 +762,9 @@ Requirements:
         />
 
         <div className="global-controls">
-            <button className="icon-btn" onClick={handleShowHistory} title="History"><HistoryIcon /></button>
+            <button className="icon-btn" onClick={handleShowProjects} title="My Projects"><FolderIcon /></button>
+            <div className="divider"></div>
+            <button className="icon-btn" onClick={handleShowImport} title="Import Dashboard"><UploadIcon /></button>
             <div className="divider"></div>
             <button className="icon-btn" disabled={!canUndo} onClick={undo} title="Undo"><UndoIcon /></button>
             <button className="icon-btn" disabled={!canRedo} onClick={redo} title="Redo"><RedoIcon /></button>
@@ -613,7 +776,7 @@ Requirements:
             isOpen={drawerState.isOpen} 
             onClose={() => setDrawerState(s => ({...s, isOpen: false}))} 
             title={drawerState.title}
-            position={drawerState.mode === 'history' ? 'left' : 'right'}
+            position={(drawerState.mode === 'history' || drawerState.mode === 'projects') ? 'left' : 'right'}
         >
             {drawerState.error && <div className="drawer-error">{drawerState.error}</div>}
             
@@ -623,6 +786,16 @@ Requirements:
                     currentSessionIndex={currentSessionIndex}
                     onJumpToSession={jumpToSession}
                     onDeleteSession={handleDeleteSession}
+                />
+            )}
+
+            {drawerState.mode === 'projects' && (
+                <ProjectsPanel 
+                    sessions={sessions}
+                    currentSessionIndex={currentSessionIndex}
+                    onJumpToSession={jumpToSession}
+                    onDeleteSession={handleDeleteSession}
+                    onUpdateSession={handleUpdateSession}
                 />
             )}
             
@@ -636,6 +809,32 @@ Requirements:
 
             {drawerState.mode === 'enhance' && (
                 <EnhancePanel onEnhance={handleEnhance} />
+            )}
+            
+            {drawerState.mode === 'import' && (
+                <ImportPanel onImport={handleImportDashboard} />
+            )}
+
+            {drawerState.mode === 'templates' && (
+                <TemplatesPanel 
+                    templates={DASHBOARD_TEMPLATES}
+                    onSelectTemplate={handleSelectTemplate}
+                    onPreview={setPreviewItem}
+                />
+            )}
+
+            {drawerState.mode === 'form' && (
+                <DashboardFormBuilder 
+                    onGenerate={handleGenerateFromForm}
+                    isGenerating={isLoading}
+                />
+            )}
+
+            {drawerState.mode === 'export' && drawerState.data && (
+                <ExportPanel 
+                    currentHtml={drawerState.data.html}
+                    dashboardName={drawerState.data.name}
+                />
             )}
             
             {drawerState.mode === 'code' && (
@@ -670,7 +869,11 @@ Requirements:
                          <div className="empty-content">
                              <h1>DashGen</h1>
                              <p>Generate professional analytics dashboards in seconds</p>
-                             <button className="surprise-button" onClick={handleSurpriseMe} disabled={isLoading}><SparklesIcon /> Surprise Me</button>
+                             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                 <button className="surprise-button" onClick={handleSurpriseMe} disabled={isLoading}><SparklesIcon /> Surprise Me</button>
+                                 <button className="surprise-button" onClick={handleShowFormBuilder} disabled={isLoading}>📝 Form Builder</button>
+                                 <button className="surprise-button" onClick={handleShowTemplates} disabled={isLoading}><FileIcon /> Browse Templates</button>
+                             </div>
                          </div>
                      </div>
                  )}
@@ -704,7 +907,7 @@ Requirements:
                     <button onClick={handleShowLayouts}><LayoutIcon /> Layouts</button>
                     <button onClick={handleShowCode}><CodeIcon /> Code</button>
                     <button onClick={handleCopyCode}><CopyIcon /> {copyButtonText}</button>
-                    <button onClick={handleDownload}><DownloadIcon /> Save</button>
+                    <button onClick={handleShowExport}><DownloadIcon /> Export</button>
                  </div>
             </div>
 
