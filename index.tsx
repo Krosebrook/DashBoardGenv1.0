@@ -11,6 +11,7 @@ import ReactDOM from 'react-dom/client';
 
 import { Artifact, Session, ComponentVariation, LayoutOption, GenerationSettings } from './types';
 import { INITIAL_PLACEHOLDERS, LAYOUT_OPTIONS } from './constants';
+import { DASHBOARD_TEMPLATES } from './constants/templates';
 import { generateId, parseJsonStream } from './utils';
 import { useHistory } from './hooks/useHistory';
 import { loadSessions, saveSessions, clearSessions } from './utils/storage';
@@ -30,6 +31,7 @@ import EnhancePanel from './components/drawer/EnhancePanel';
 import VariationsPanel from './components/drawer/VariationsPanel';
 import LayoutsPanel from './components/drawer/LayoutsPanel';
 import ImportPanel from './components/drawer/ImportPanel';
+import TemplatesPanel from './components/drawer/TemplatesPanel';
 
 import { 
     ThinkingIcon, 
@@ -47,7 +49,8 @@ import {
     RedoIcon,
     SettingsIcon,
     WandIcon,
-    UploadIcon
+    UploadIcon,
+    FileIcon
 } from './components/Icons';
 
 function App() {
@@ -81,7 +84,7 @@ function App() {
 
   const [drawerState, setDrawerState] = useState<{
       isOpen: boolean;
-      mode: 'code' | 'variations' | 'layouts' | 'settings' | 'enhance' | 'history' | 'import' | null;
+      mode: 'code' | 'variations' | 'layouts' | 'settings' | 'enhance' | 'history' | 'import' | 'templates' | null;
       title: string;
       data: any;
       error?: string | null;
@@ -422,6 +425,7 @@ Instructions:
   const handleShowEnhance = () => setDrawerState({ isOpen: true, mode: 'enhance', title: 'Enhance Dashboard', data: null, error: null });
   const handleShowHistory = () => setDrawerState({ isOpen: true, mode: 'history', title: 'Recent Dashboards', data: null, error: null });
   const handleShowImport = () => setDrawerState({ isOpen: true, mode: 'import', title: 'Import Dashboard', data: null, error: null });
+  const handleShowTemplates = () => setDrawerState({ isOpen: true, mode: 'templates', title: 'Dashboard Templates', data: null, error: null });
 
   const handleImportDashboard = (html: string, fileName: string) => {
       const sessionId = generateId();
@@ -436,6 +440,29 @@ Instructions:
       const newSession: Session = {
           id: sessionId,
           prompt: `Imported: ${fileName}`,
+          timestamp: Date.now(),
+          artifacts: [artifact]
+      };
+
+      setSessions(prev => [...prev, newSession]);
+      setCurrentSessionIndex(prev => prev + 1);
+      setFocusedArtifactIndex(0);
+      setDrawerState(s => ({ ...s, isOpen: false }));
+  };
+
+  const handleSelectTemplate = (template: any) => {
+      const sessionId = generateId();
+      const artifact: Artifact = {
+          id: `${sessionId}_0`,
+          styleName: template.name,
+          html: template.html,
+          originalHtml: template.html,
+          status: 'complete',
+      };
+
+      const newSession: Session = {
+          id: sessionId,
+          prompt: `Template: ${template.name}`,
           timestamp: Date.now(),
           artifacts: [artifact]
       };
@@ -669,6 +696,14 @@ Requirements:
             {drawerState.mode === 'import' && (
                 <ImportPanel onImport={handleImportDashboard} />
             )}
+
+            {drawerState.mode === 'templates' && (
+                <TemplatesPanel 
+                    templates={DASHBOARD_TEMPLATES}
+                    onSelectTemplate={handleSelectTemplate}
+                    onPreview={setPreviewItem}
+                />
+            )}
             
             {drawerState.mode === 'code' && (
                 <CodeEditor initialValue={drawerState.data} onSave={updateArtifactCode} />
@@ -702,7 +737,10 @@ Requirements:
                          <div className="empty-content">
                              <h1>DashGen</h1>
                              <p>Generate professional analytics dashboards in seconds</p>
-                             <button className="surprise-button" onClick={handleSurpriseMe} disabled={isLoading}><SparklesIcon /> Surprise Me</button>
+                             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                                 <button className="surprise-button" onClick={handleSurpriseMe} disabled={isLoading}><SparklesIcon /> Surprise Me</button>
+                                 <button className="surprise-button" onClick={handleShowTemplates} disabled={isLoading}><FileIcon /> Browse Templates</button>
+                             </div>
                          </div>
                      </div>
                  )}
