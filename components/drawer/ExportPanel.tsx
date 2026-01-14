@@ -199,7 +199,7 @@ ${styles}
                 <h4>💡 Tips</h4>
                 <ul>
                     <li><strong>HTML:</strong> Ready to deploy - just upload to any web server</li>
-                    <li><strong>React:</strong> Import into your React app and customize further</li>
+                    <li><strong>React:</strong> Import into your React app and customize further. Note: Complex HTML may require manual JSX adjustments.</li>
                     <li><strong>JSON:</strong> Use for configuration management or API integration</li>
                 </ul>
             </div>

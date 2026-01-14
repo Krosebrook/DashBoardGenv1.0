@@ -14,9 +14,11 @@ export default function ImportPanel({ onImport }: ImportPanelProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [previewHtml, setPreviewHtml] = useState<string>('');
     const [fileName, setFileName] = useState<string>('');
+    const [error, setError] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFile = (file: File) => {
+        setError('');
         if (file.type === 'text/html' || file.name.endsWith('.html')) {
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -26,7 +28,7 @@ export default function ImportPanel({ onImport }: ImportPanelProps) {
             };
             reader.readAsText(file);
         } else {
-            alert('Please upload an HTML file');
+            setError('Please upload an HTML file (.html)');
         }
     };
 
@@ -73,6 +75,12 @@ export default function ImportPanel({ onImport }: ImportPanelProps) {
             <p className="panel-description">
                 Upload an existing HTML dashboard file to edit, enhance, or generate variations.
             </p>
+
+            {error && (
+                <div className="import-error">
+                    ⚠️ {error}
+                </div>
+            )}
             
             <div 
                 className={`drop-zone ${isDragging ? 'dragging' : ''}`}

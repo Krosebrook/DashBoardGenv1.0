@@ -225,7 +225,15 @@ export default function DashboardFormBuilder({ onGenerate, isGenerating }: Dashb
                             className={`color-scheme-option ${specs.colorScheme === scheme.id ? 'selected' : ''}`}
                             onClick={() => setSpecs({ ...specs, colorScheme: scheme.id })}
                         >
-                            <div className="color-preview" style={{ background: `linear-gradient(135deg, ${scheme.colors})` }}></div>
+                            <div 
+                                className="color-preview" 
+                                style={{ 
+                                    background: scheme.id === specs.colorScheme 
+                                        ? `linear-gradient(135deg, ${scheme.colors})` 
+                                        : 'transparent',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)'
+                                }}
+                            ></div>
                             <span>{scheme.label}</span>
                         </button>
                     ))}
