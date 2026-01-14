@@ -3,9 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Diffusion Chat</title>
+    
+    <!-- Primary Meta Tags -->
+    <title>DashGen - AI-Powered Dashboard Generator</title>
+    <meta name="title" content="DashGen - AI-Powered Dashboard Generator">
+    <meta name="description" content="Generate full-stack ready dashboard UIs with charts, grids, and responsive layouts instantly using AI. PWA-first, secure, and production-ready.">
+    <meta name="keywords" content="dashboard generator, AI, PWA, React, TypeScript, charts, data visualization">
+    <meta name="author" content="DashGen Team">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://dashgen.app/">
+    <meta property="og:title" content="DashGen - AI-Powered Dashboard Generator">
+    <meta property="og:description" content="Generate full-stack ready dashboard UIs with charts, grids, and responsive layouts instantly using AI.">
+    <meta property="og:image" content="https://dashgen.app/og-image.png">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://dashgen.app/">
+    <meta property="twitter:title" content="DashGen - AI-Powered Dashboard Generator">
+    <meta property="twitter:description" content="Generate full-stack ready dashboard UIs with charts, grids, and responsive layouts instantly using AI.">
+    <meta property="twitter:image" content="https://dashgen.app/twitter-image.png">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="DashGen">
+    <meta name="application-name" content="DashGen">
+    <meta name="theme-color" content="#8b5cf6">
+    <meta name="msapplication-TileColor" content="#8b5cf6">
+    <meta name="msapplication-config" content="/browserconfig.xml">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
+    <link rel="shortcut icon" href="/favicon.ico">
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/apple-touch-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/icons/apple-touch-icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/icons/apple-touch-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/icons/apple-touch-icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="/icons/apple-touch-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/icons/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="60x60" href="/icons/apple-touch-icon-60x60.png">
+    <link rel="apple-touch-icon" sizes="57x57" href="/icons/apple-touch-icon-57x57.png">
+    
+    <!-- Styles -->
     <link rel="stylesheet" href="index.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Import Map -->
     <script type="importmap">
         {
             "imports": {
@@ -16,9 +70,44 @@
             }
         }
     </script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('✓ Service Worker registered:', registration.scope);
+                        
+                        // Check for updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // New service worker available
+                                    console.log('New version available! Refresh to update.');
+                                    // TODO: Show update notification to user
+                                }
+                            });
+                        });
+                    })
+                    .catch(error => {
+                        console.error('✗ Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
 </head>
 <body>
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
+    
+    <!-- Offline Fallback (noscript) -->
+    <noscript>
+        <div style="padding: 20px; text-align: center; font-family: Arial, sans-serif;">
+            <h1>JavaScript Required</h1>
+            <p>DashGen requires JavaScript to be enabled. Please enable JavaScript in your browser settings.</p>
+        </div>
+    </noscript>
 </body>
 </html>
