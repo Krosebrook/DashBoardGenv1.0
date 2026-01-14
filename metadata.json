@@ -1,0 +1,6 @@
+{
+  "name": "DashGen",
+  "description": "An AI-powered dashboard generator. Create full-stack ready dashboard UIs with charts, grids, and responsive layouts instantly.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
