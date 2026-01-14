@@ -33,6 +33,7 @@ import LayoutsPanel from './components/drawer/LayoutsPanel';
 import ImportPanel from './components/drawer/ImportPanel';
 import TemplatesPanel from './components/drawer/TemplatesPanel';
 import ExportPanel from './components/drawer/ExportPanel';
+import DashboardFormBuilder, { DashboardSpecs } from './components/drawer/DashboardFormBuilder';
 
 import { 
     ThinkingIcon, 
@@ -85,7 +86,7 @@ function App() {
 
   const [drawerState, setDrawerState] = useState<{
       isOpen: boolean;
-      mode: 'code' | 'variations' | 'layouts' | 'settings' | 'enhance' | 'history' | 'import' | 'templates' | 'export' | null;
+      mode: 'code' | 'variations' | 'layouts' | 'settings' | 'enhance' | 'history' | 'import' | 'templates' | 'export' | 'form' | null;
       title: string;
       data: any;
       error?: string | null;
@@ -427,6 +428,7 @@ Instructions:
   const handleShowHistory = () => setDrawerState({ isOpen: true, mode: 'history', title: 'Recent Dashboards', data: null, error: null });
   const handleShowImport = () => setDrawerState({ isOpen: true, mode: 'import', title: 'Import Dashboard', data: null, error: null });
   const handleShowTemplates = () => setDrawerState({ isOpen: true, mode: 'templates', title: 'Dashboard Templates', data: null, error: null });
+  const handleShowFormBuilder = () => setDrawerState({ isOpen: true, mode: 'form', title: 'Build Dashboard', data: null, error: null });
 
   const handleImportDashboard = (html: string, fileName: string) => {
       const sessionId = generateId();
@@ -472,6 +474,89 @@ Instructions:
       setCurrentSessionIndex(prev => prev + 1);
       setFocusedArtifactIndex(0);
       setDrawerState(s => ({ ...s, isOpen: false }));
+  };
+
+  const handleGenerateFromForm = async (specs: DashboardSpecs) => {
+      setIsLoading(true);
+      setDrawerState(s => ({ ...s, isOpen: false }));
+
+      const sessionId = generateId();
+      const placeholderArtifact: Artifact = {
+          id: `${sessionId}_0`,
+          styleName: specs.name,
+          html: '',
+          status: 'streaming',
+      };
+
+      const newSession: Session = {
+          id: sessionId,
+          prompt: `Form: ${specs.name}`,
+          timestamp: Date.now(),
+          artifacts: [placeholderArtifact]
+      };
+
+      setSessions(prev => [...prev, newSession]);
+      setCurrentSessionIndex(prev => prev + 1);
+      setFocusedArtifactIndex(0);
+
+      try {
+          const ai = getAiClient();
+
+          const metricsText = specs.metrics.map(m => `${m.label}: ${m.value}`).join(', ');
+          const chartsText = specs.charts.map(c => `${c.type} chart for ${c.title}`).join(', ');
+          const layoutType = specs.layout === 'sidebar' ? 'sidebar navigation' : 'top navigation bar';
+
+          const prompt = `
+Create a professional ${specs.category} dashboard with the following specifications:
+
+Dashboard Name: ${specs.name}
+Layout: ${layoutType}
+Color Scheme: ${specs.colorScheme}
+
+Key Metrics to display:
+${metricsText}
+
+Charts to include:
+${chartsText}
+
+${specs.tables ? 'Include a data table with sample rows.' : ''}
+
+Requirements:
+1. Create a complete, production-ready HTML file with inline CSS
+2. Use modern, clean design with proper spacing
+3. Make it responsive
+4. Include the specified metrics as cards/widgets
+5. Include the specified charts (use Chart.js CDN for interactive charts OR create CSS-only chart placeholders)
+6. Apply the ${specs.colorScheme} color scheme appropriately
+7. Return ONLY raw HTML/CSS. No markdown blocks.
+          `.trim();
+
+          const responseStream = await ai.models.generateContentStream({
+              model: 'gemini-3-flash-preview',
+              contents: [{ parts: [{ text: prompt }], role: "user" }],
+          });
+
+          let accumulatedHtml = '';
+          for await (const chunk of responseStream) {
+              if (typeof chunk.text === 'string') {
+                  accumulatedHtml += chunk.text;
+                  setSessions(prev => prev.map(sess => sess.id === sessionId ? {
+                      ...sess,
+                      artifacts: sess.artifacts.map(art => art.id === placeholderArtifact.id ? { ...art, html: accumulatedHtml } : art)
+                  } : sess));
+              }
+          }
+
+          let finalHtml = accumulatedHtml.replace(/```html|```/g, '').trim();
+          setSessions(prev => prev.map(sess => sess.id === sessionId ? {
+              ...sess,
+              artifacts: sess.artifacts.map(art => art.id === placeholderArtifact.id ? { ...art, html: finalHtml, originalHtml: finalHtml, status: 'complete' } : art)
+          } : sess));
+      } catch (e) {
+          console.error("Form generation failed", e);
+      } finally {
+          setIsLoading(false);
+      }
   };
 
   const handleShowExport = () => {
@@ -719,6 +804,13 @@ Requirements:
                 />
             )}
 
+            {drawerState.mode === 'form' && (
+                <DashboardFormBuilder 
+                    onGenerate={handleGenerateFromForm}
+                    isGenerating={isLoading}
+                />
+            )}
+
             {drawerState.mode === 'export' && drawerState.data && (
                 <ExportPanel 
                     currentHtml={drawerState.data.html}
@@ -758,8 +850,9 @@ Requirements:
                          <div className="empty-content">
                              <h1>DashGen</h1>
                              <p>Generate professional analytics dashboards in seconds</p>
-                             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
                                  <button className="surprise-button" onClick={handleSurpriseMe} disabled={isLoading}><SparklesIcon /> Surprise Me</button>
+                                 <button className="surprise-button" onClick={handleShowFormBuilder} disabled={isLoading}>📝 Form Builder</button>
                                  <button className="surprise-button" onClick={handleShowTemplates} disabled={isLoading}><FileIcon /> Browse Templates</button>
                              </div>
                          </div>
