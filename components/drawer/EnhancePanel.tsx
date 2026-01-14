@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -29,7 +30,23 @@ const EnhancePanel: React.FC<EnhancePanelProps> = ({ onEnhance }) => {
 
     return (
         <div className="enhance-panel">
-            <div className="enhance-section-label">Data & Branding</div>
+            <div className="enhance-section-label">Identity & Branding</div>
+            <button className="enhance-option" onClick={() => onEnhance('persona')}>
+                <span className="icon">👤</span>
+                <div className="text">
+                    <strong>Persona & Identity</strong>
+                    <span>Generate realistic users, professional portraits, and brand identity elements.</span>
+                </div>
+            </button>
+            <button className="enhance-option" onClick={() => onEnhance('content')}>
+                <span className="icon">🖼️</span>
+                <div className="text">
+                    <strong>Inject High-End Media</strong>
+                    <span>Replace placeholders with curated photography from Unsplash.</span>
+                </div>
+            </button>
+
+            <div className="enhance-section-label" style={{ marginTop: '24px' }}>Data Intelligence</div>
             <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -39,41 +56,54 @@ const EnhancePanel: React.FC<EnhancePanelProps> = ({ onEnhance }) => {
             />
             <button className="enhance-option" onClick={handleFileClick}>
                 <span className="icon">📄</span>
-                <div className="text"><strong>Populate from File</strong><span>Analyze docs/CSVs and inject real data.</span></div>
-            </button>
-            <button className="enhance-option" onClick={() => onEnhance('persona')}>
-                <span className="icon">👤</span>
-                <div className="text"><strong>Realistic Dummy Data</strong><span>Inject user names, high-fidelity roles, and portraits.</span></div>
+                <div className="text">
+                    <strong>File Populate</strong>
+                    <span>Extract metrics from documents or CSVs to fill your dashboard.</span>
+                </div>
             </button>
             <button className="enhance-option" onClick={() => onEnhance('dummy')}>
                 <span className="icon">🔢</span>
-                <div className="text"><strong>Smart Metrics</strong><span>Populate realistic KPIs and business data.</span></div>
-            </button>
-            <button className="enhance-option" onClick={() => onEnhance('content')}>
-                <span className="icon">🖼️</span>
-                <div className="text"><strong>Inject Real Images</strong><span>Replace placeholders with Unsplash photography.</span></div>
+                <div className="text">
+                    <strong>Smart Dummy Data</strong>
+                    <span>Populate realistic KPIs, trends, and data tables instantly.</span>
+                </div>
             </button>
 
-            <div className="enhance-section-label" style={{ marginTop: '24px' }}>Engineering & UX</div>
+            <div className="enhance-section-label" style={{ marginTop: '24px' }}>Engineering Refinement</div>
             <button className="enhance-option" onClick={() => onEnhance('a11y')}>
                 <span className="icon">♿</span>
-                <div className="text"><strong>Fix Accessibility (WCAG)</strong><span>Audit ARIA, contrast, and semantic structure.</span></div>
+                <div className="text">
+                    <strong>A11y Fix (WCAG 2.1)</strong>
+                    <span>Audit and fix ARIA, contrast, and semantic structure.</span>
+                </div>
             </button>
             <button className="enhance-option" onClick={() => onEnhance('charts')}>
                 <span className="icon">📊</span>
-                <div className="text"><strong>Interactive Charts</strong><span>Add live Chart.js visualizations.</span></div>
+                <div className="text">
+                    <strong>Interactive Charts</strong>
+                    <span>Identify data areas and inject live Chart.js visualizations.</span>
+                </div>
             </button>
             <button className="enhance-option" onClick={() => onEnhance('responsive')}>
                 <span className="icon">📱</span>
-                <div className="text"><strong>Mobile Optimization</strong><span>Ensure perfect grids across breakpoints.</span></div>
+                <div className="text">
+                    <strong>Mobile Optimization</strong>
+                    <span>Refine layout and grids for perfect responsiveness across all devices.</span>
+                </div>
             </button>
             <button className="enhance-option" onClick={() => onEnhance('tailwind')}>
                 <span className="icon">🌊</span>
-                <div className="text"><strong>Utility Refactor</strong><span>Convert custom CSS to Tailwind classes.</span></div>
+                <div className="text">
+                    <strong>Utility Refactor</strong>
+                    <span>Rewrite all custom CSS into clean Tailwind utility classes.</span>
+                </div>
             </button>
             <button className="enhance-option" onClick={() => onEnhance('format')}>
                 <span className="icon">📝</span>
-                <div className="text"><strong>Prettify Code</strong><span>Clean up formatting and indentation.</span></div>
+                <div className="text">
+                    <strong>Prettify Source</strong>
+                    <span>Clean up indentation and code formatting for developer handoff.</span>
+                </div>
             </button>
         </div>
     );

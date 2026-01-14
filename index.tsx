@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -86,7 +87,6 @@ function App() {
       error?: string | null;
   }>({ isOpen: false, mode: null, title: '', data: null, error: null });
 
-  const [componentVariations, setComponentVariations] = useState<ComponentVariation[]>([]);
   const [previewItem, setPreviewItem] = useState<{html: string, name: string} | null>(null);
   const [copyButtonText, setCopyButtonText] = useState('Copy Code');
 
@@ -175,58 +175,76 @@ function App() {
 
             const filePart = await getFilePart(file);
             enhancementPrompt = `
-                I have uploaded a document. Analyze its contents (text, metrics, tables).
-                Inject this real-world data into the provided dashboard HTML to replace all generic placeholders.
-                Map the metrics to cards, data to tables, and trends to chart data if applicable.
+                I have provided a source document. Analyze its contents (text, metrics, tables, statistics).
+                Inject this real-world data into the following dashboard HTML, replacing all generic placeholders, "Lorem Ipsum", or generic numbers.
+                Ensure metrics are mapped to relevant KPI cards, tables are populated with extracted rows, and chart data reflects the trends in the document.
                 Return ONLY the complete updated raw HTML.
             `;
             parts = [filePart, { text: enhancementPrompt }, { text: `Existing Code:\n${artifact.html}` }];
         } else {
             if (type === 'persona') {
                 enhancementPrompt = `
-                    You are a professional branding and UX content strategist. 
-                    Your goal is to inject highly realistic dummy data into this dashboard UI.
+                    You are a world-class Branding and UX Content Strategist. Your task is to inject a high-fidelity brand identity and realistic, diverse user personas into this dashboard. 
                     
-                    1. Identity: Generate realistic, diverse, professional user names and roles (e.g. "Senior Strategy Consultant", "Chief Operations Officer"). 
-                    2. Avatars: Replace placeholder/empty avatars with high-quality, professional portraits from Unsplash (e.g., using source.unsplash.com/800x800/?portrait,professional).
-                    3. Branding: Invent a cohesive company brand name, logo text, and professional mission statements.
-                    4. Content: Replace all "Lorem Ipsum" and generic strings with domain-specific, high-value professional copy that fits the dashboard's context.
+                    1. Brand Identity: Invent a professional company name, a mission statement, and replace all 'Logo' or 'Company' placeholders with this cohesive identity.
                     
-                    Maintain the existing layout and styles. Return ONLY the complete updated raw HTML.
+                    2. User Personas: Generate highly realistic, diverse, and professional user names and roles (e.g., 'Lead Data Scientist', 'VP of Logistics', 'Chief Strategy Officer'). Inject these into any 'User Profile', 'Assigned To', or 'Team' sections.
+                    
+                    3. Professional Portraits: Replace all empty, generic, or SVG user avatars with high-quality, professional photography URLs from Unsplash (e.g., 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200&h=200' for a profile shot). Ensure the URLs are valid and diverse.
+                    
+                    4. Professional Copy: Replace all 'Lorem Ipsum', 'Test Data', or generic strings with contextually accurate, professional domain content that matches the dashboard theme.
+                    
+                    Return ONLY the complete updated raw HTML.
                 `;
             } else if (type === 'a11y') {
                 enhancementPrompt = `
-                    You are an Accessibility Expert specialized in WCAG 2.1 AA/AAA compliance. 
-                    Audit and fix the provided dashboard HTML to ensure it is fully accessible to all users.
-                    
-                    1. Contrast: Adjust CSS color values to ensure text-to-background contrast ratios meet WCAG standards while preserving the original theme's aesthetic.
-                    2. Semantics: Refactor structural elements to use proper HTML5 semantic tags (<main>, <nav>, <aside>, <section>, <header>, <footer>).
-                    3. ARIA: Add comprehensive ARIA roles, labels, and aria-describedby attributes to all interactive elements (buttons, links, inputs, modals).
-                    4. Images: Ensure all <img> tags have descriptive and meaningful alt text.
-                    5. Forms: Ensure all form controls have properly associated <label> elements.
-                    6. Keyboard: Ensure a logical tab order and visible focus states.
-                    
+                    You are an expert Accessibility (A11y) Engineer specializing in WCAG 2.1 AA/AAA standards. 
+                    Audit and fix this dashboard HTML:
+                    1. Contrast: Adjust CSS colors if necessary to ensure all text meets AA/AAA contrast requirements.
+                    2. Semantics: Refactor elements to use proper HTML5 semantic tags (<main>, <nav>, <aside>, <section>, <header>, <footer>).
+                    3. ARIA: Add comprehensive aria-labels, roles, and states to all interactive components (buttons, links, inputs).
+                    4. Focus: Ensure a logical tab order and highly visible focus states for keyboard navigation.
+                    5. Alt Text: Add descriptive alt text to all images.
                     Return ONLY the complete fixed raw HTML.
                 `;
             } else if (type === 'format') {
-                enhancementPrompt = 'Prettify and format the code for high readability. Ensure standard indentation and clean organization. Return ONLY cleaned HTML.';
+                enhancementPrompt = 'Prettify and format the code for high readability. Ensure standard indentation and clean organization of CSS and JS. Return ONLY cleaned HTML.';
             } else if (type === 'dummy') {
-                enhancementPrompt = 'Inject high-fidelity, realistic business KPIs and data rows. Ensure numbers look like real analytics (e.g. conversion rates, revenue, churn). Populate tables with at least 8-10 varied rows of content. Return ONLY updated HTML.';
+                enhancementPrompt = 'Identify the domain of this dashboard. Inject high-fidelity, realistic business KPIs and at least 10 rows of varied data into tables. Ensure trends and numbers are consistent and look like live analytics. Return ONLY updated HTML.';
             } else if (type === 'content') {
-                enhancementPrompt = 'Visual Storytelling: Replace all generic placeholders and empty images with beautiful, context-relevant photography from Unsplash. Return raw HTML.';
+                enhancementPrompt = 'Visual Storytelling: Scan the dashboard for image placeholders and replace them with beautiful, high-resolution photography from Unsplash that matches the professional context. Return ONLY updated HTML.';
             } else if (type === 'responsive') {
-                enhancementPrompt = 'Mobile-First Refinement: Refine the CSS/layout to be perfectly responsive across all breakpoints (Mobile, Tablet, Desktop). Return raw HTML.';
+                enhancementPrompt = `
+                    You are a world-class Responsive Design Expert. Refine the provided dashboard for perfect viewing on Mobile (Portrait/Landscape), Tablet, and Ultra-wide Desktop. 
+                    1. Grids: Implement fluid CSS Grid or Flexbox layouts that stack gracefully.
+                    2. Navigation: Ensure sidebars collapse into a drawer or hamburger menu for mobile devices.
+                    3. Touch Targets: Ensure all buttons and links are at least 44x44px on mobile.
+                    4. Typography: Use responsive font sizing (e.g., clamp() or media queries).
+                    Return ONLY the complete updated raw HTML.
+                `;
             } else if (type === 'tailwind') {
-                enhancementPrompt = 'Utility Refactor: Rewrite all custom CSS using Tailwind CSS utility classes exclusively. Return raw HTML.';
+                enhancementPrompt = `
+                    Senior Frontend Engineer. Refactor this entire dashboard to use Tailwind CSS utility classes exclusively. 
+                    1. Extraction: Move all styles from <style> blocks into utility classes on the HTML elements.
+                    2. CDN: Ensure the Tailwind CDN script is correctly included in the <head>.
+                    3. Professional Scale: Use Tailwind's standard spacing, shadow, and color scales for a polished look.
+                    Return ONLY the complete updated raw HTML.
+                `;
             } else if (type === 'charts') {
-                enhancementPrompt = 'Interactive Visualizations: Identify data-heavy areas and inject Chart.js canvas elements with live rendering scripts from CDN. Return raw HTML.';
+                enhancementPrompt = `
+                    Identify data-heavy areas, static graphs, or KPI cards in the dashboard.
+                    1. Injection: Add the Chart.js CDN script to the <head>.
+                    2. Widgets: Inject canvas elements and specialized <script> blocks to initialize interactive, animated charts (Line, Bar, or Doughnut) using the dashboard's current data context.
+                    3. Styling: Ensure chart colors match the dashboard's design system.
+                    Return ONLY the complete updated raw HTML.
+                `;
             }
             
             parts = [{ text: `${enhancementPrompt}\n\nExisting Code:\n${artifact.html}` }];
         }
 
         const response = await ai.models.generateContent({
-             model: (type === 'persona' || type === 'file-populate' || type === 'a11y') ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview',
+             model: (type === 'persona' || type === 'file-populate' || type === 'a11y' || type === 'responsive' || type === 'tailwind' || type === 'charts') ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview',
              contents: [{ role: 'user', parts }]
         });
         
@@ -260,7 +278,7 @@ function App() {
 
     try {
         const ai = getAiClient();
-        const prompt = `Regenerate this Dashboard UI fresh based on: "${currentSession.prompt}". Theme Concept: ${artifact.styleName}. Return raw HTML only.`;
+        const prompt = `Regenerate this Dashboard UI fresh based on: "${currentSession.prompt}". Concept: ${artifact.styleName}. Return raw HTML only.`;
         const responseStream = await ai.models.generateContentStream({
             model: 'gemini-3-flash-preview',
             contents: [{ role: 'user', parts: [{ text: prompt }] }]
@@ -294,7 +312,7 @@ function App() {
           const currentSession = sessions[currentSessionIndex];
           const artifact = currentSession.artifacts[focusedArtifactIndex];
 
-          const prompt = `Senior Frontend Engineer. Modify the following dashboard interface.\nExisting Code:\n${artifact.html}\nUser Request: "${instruction}"\nPerform the modification while preserving the layout and professional design language. Return only the complete updated raw HTML.`;
+          const prompt = `Senior Frontend Engineer. Modify the following dashboard interface.\nExisting Code:\n${artifact.html}\nUser Request: "${instruction}"\nPerform the requested changes while strictly adhering to the current design language, layout principles, and component hierarchy. Return ONLY the complete updated raw HTML.`;
           const responseStream = await ai.models.generateContentStream({
               model: 'gemini-3-pro-preview',
               contents: [{ role: 'user', parts: [{ text: prompt }] }]
@@ -365,13 +383,13 @@ function App() {
 
     try {
         const ai = getAiClient();
-        const stylePrompt = `Generate 3 distinct, high-end UI design concept names for a dashboard dashboard based on: "${trimmed}". Concepts should be descriptive (e.g. "Dark Mode Cyberpunk", "Swiss Minimalist", "Glassmorphic Analytical"). Return ONLY a raw JSON array of 3 strings.`;
+        const stylePrompt = `Generate 3 distinct UI concept names for a dashboard based on: "${trimmed}". Concepts should be unique (e.g. "Glassmorphism", "Bento Grid", "High-Contrast Enterprise"). Return ONLY a raw JSON array of 3 strings.`;
         const styleRes = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: { role: 'user', parts: [{ text: stylePrompt }] }
         });
 
-        let styles: string[] = ["Modern Dashboard", "Enterprise Grid", "Minimalist Analytics"];
+        let styles: string[] = ["Concept Alpha", "Concept Beta", "Concept Gamma"];
         try {
             const parsedStyles = JSON.parse(styleRes.text?.match(/\[[\s\S]*\]/)?.[0] || '[]');
             if (Array.isArray(parsedStyles) && parsedStyles.length === 3) {
@@ -393,9 +411,8 @@ function App() {
             - Sidebar and Top Navigation
             - KPI cards with icons
             - A professional data table
-            - Interactive chart area placeholders
             - Realistic dummy metrics
-            Return ONLY complete, standalone raw HTML.`;
+            Return ONLY standalone raw HTML.`;
 
             const stream = await ai.models.generateContentStream({
                 model: 'gemini-3-flash-preview',
