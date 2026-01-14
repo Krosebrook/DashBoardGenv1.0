@@ -34,6 +34,7 @@ import ImportPanel from './components/drawer/ImportPanel';
 import TemplatesPanel from './components/drawer/TemplatesPanel';
 import ExportPanel from './components/drawer/ExportPanel';
 import DashboardFormBuilder, { DashboardSpecs } from './components/drawer/DashboardFormBuilder';
+import ProjectsPanel from './components/drawer/ProjectsPanel';
 
 import { 
     ThinkingIcon, 
@@ -52,7 +53,8 @@ import {
     SettingsIcon,
     WandIcon,
     UploadIcon,
-    FileIcon
+    FileIcon,
+    FolderIcon
 } from './components/Icons';
 
 function App() {
@@ -86,7 +88,7 @@ function App() {
 
   const [drawerState, setDrawerState] = useState<{
       isOpen: boolean;
-      mode: 'code' | 'variations' | 'layouts' | 'settings' | 'enhance' | 'history' | 'import' | 'templates' | 'export' | 'form' | null;
+      mode: 'code' | 'variations' | 'layouts' | 'settings' | 'enhance' | 'history' | 'import' | 'templates' | 'export' | 'form' | 'projects' | null;
       title: string;
       data: any;
       error?: string | null;
@@ -429,6 +431,13 @@ Instructions:
   const handleShowImport = () => setDrawerState({ isOpen: true, mode: 'import', title: 'Import Dashboard', data: null, error: null });
   const handleShowTemplates = () => setDrawerState({ isOpen: true, mode: 'templates', title: 'Dashboard Templates', data: null, error: null });
   const handleShowFormBuilder = () => setDrawerState({ isOpen: true, mode: 'form', title: 'Build Dashboard', data: null, error: null });
+  const handleShowProjects = () => setDrawerState({ isOpen: true, mode: 'projects', title: 'My Projects', data: null, error: null });
+
+  const handleUpdateSession = (id: string, updates: { name?: string; tags?: string[] }) => {
+      setSessions(prev => prev.map(session => 
+          session.id === id ? { ...session, ...updates } : session
+      ));
+  };
 
   const handleImportDashboard = (html: string, fileName: string) => {
       const sessionId = generateId();
@@ -753,7 +762,7 @@ Requirements:
         />
 
         <div className="global-controls">
-            <button className="icon-btn" onClick={handleShowHistory} title="History"><HistoryIcon /></button>
+            <button className="icon-btn" onClick={handleShowProjects} title="My Projects"><FolderIcon /></button>
             <div className="divider"></div>
             <button className="icon-btn" onClick={handleShowImport} title="Import Dashboard"><UploadIcon /></button>
             <div className="divider"></div>
@@ -767,7 +776,7 @@ Requirements:
             isOpen={drawerState.isOpen} 
             onClose={() => setDrawerState(s => ({...s, isOpen: false}))} 
             title={drawerState.title}
-            position={drawerState.mode === 'history' ? 'left' : 'right'}
+            position={(drawerState.mode === 'history' || drawerState.mode === 'projects') ? 'left' : 'right'}
         >
             {drawerState.error && <div className="drawer-error">{drawerState.error}</div>}
             
@@ -777,6 +786,16 @@ Requirements:
                     currentSessionIndex={currentSessionIndex}
                     onJumpToSession={jumpToSession}
                     onDeleteSession={handleDeleteSession}
+                />
+            )}
+
+            {drawerState.mode === 'projects' && (
+                <ProjectsPanel 
+                    sessions={sessions}
+                    currentSessionIndex={currentSessionIndex}
+                    onJumpToSession={jumpToSession}
+                    onDeleteSession={handleDeleteSession}
+                    onUpdateSession={handleUpdateSession}
                 />
             )}
             
