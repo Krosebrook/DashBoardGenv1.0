@@ -32,6 +32,7 @@ import VariationsPanel from './components/drawer/VariationsPanel';
 import LayoutsPanel from './components/drawer/LayoutsPanel';
 import ImportPanel from './components/drawer/ImportPanel';
 import TemplatesPanel from './components/drawer/TemplatesPanel';
+import ExportPanel from './components/drawer/ExportPanel';
 
 import { 
     ThinkingIcon, 
@@ -84,7 +85,7 @@ function App() {
 
   const [drawerState, setDrawerState] = useState<{
       isOpen: boolean;
-      mode: 'code' | 'variations' | 'layouts' | 'settings' | 'enhance' | 'history' | 'import' | 'templates' | null;
+      mode: 'code' | 'variations' | 'layouts' | 'settings' | 'enhance' | 'history' | 'import' | 'templates' | 'export' | null;
       title: string;
       data: any;
       error?: string | null;
@@ -473,6 +474,19 @@ Instructions:
       setDrawerState(s => ({ ...s, isOpen: false }));
   };
 
+  const handleShowExport = () => {
+      if (focusedArtifactIndex === null || currentSessionIndex === -1) return;
+      const currentSession = sessions[currentSessionIndex];
+      const artifact = currentSession.artifacts[focusedArtifactIndex];
+      setDrawerState({ 
+          isOpen: true, 
+          mode: 'export', 
+          title: 'Export Dashboard', 
+          data: { html: artifact.html, name: artifact.styleName || `dashboard-${artifact.id}` }, 
+          error: null 
+      });
+  };
+
   const handleDownload = () => {
     if (focusedArtifactIndex === null || currentSessionIndex === -1) return;
     const currentSession = sessions[currentSessionIndex];
@@ -704,6 +718,13 @@ Requirements:
                     onPreview={setPreviewItem}
                 />
             )}
+
+            {drawerState.mode === 'export' && drawerState.data && (
+                <ExportPanel 
+                    currentHtml={drawerState.data.html}
+                    dashboardName={drawerState.data.name}
+                />
+            )}
             
             {drawerState.mode === 'code' && (
                 <CodeEditor initialValue={drawerState.data} onSave={updateArtifactCode} />
@@ -774,7 +795,7 @@ Requirements:
                     <button onClick={handleShowLayouts}><LayoutIcon /> Layouts</button>
                     <button onClick={handleShowCode}><CodeIcon /> Code</button>
                     <button onClick={handleCopyCode}><CopyIcon /> {copyButtonText}</button>
-                    <button onClick={handleDownload}><DownloadIcon /> Save</button>
+                    <button onClick={handleShowExport}><DownloadIcon /> Export</button>
                  </div>
             </div>
 
