@@ -6,7 +6,7 @@
 
 import React, { useRef } from 'react';
 
-export type EnhanceType = 'a11y' | 'format' | 'dummy' | 'responsive' | 'tailwind' | 'charts' | 'content' | 'file-populate' | 'persona';
+export type EnhanceType = 'a11y' | 'format' | 'dummy' | 'responsive' | 'tailwind' | 'charts' | 'content' | 'file-populate' | 'persona' | 'enhance-code';
 
 interface EnhancePanelProps {
     onEnhance: (type: EnhanceType, file?: File) => void;
@@ -46,7 +46,23 @@ const EnhancePanel: React.FC<EnhancePanelProps> = ({ onEnhance }) => {
                 </div>
             </button>
 
-            <div className="enhance-section-label" style={{ marginTop: '24px' }}>Data Intelligence</div>
+            <div className="enhance-section-label" style={{ marginTop: '24px' }}>Visual Intelligence</div>
+            <button className="enhance-option" onClick={() => onEnhance('charts')} style={{ border: '1px solid #10b98144', background: 'rgba(16, 185, 129, 0.05)' }}>
+                <span className="icon">📈</span>
+                <div className="text">
+                    <strong style={{ color: '#10b981' }}>Interactive Charts</strong>
+                    <span>Automatically detect data-heavy areas and inject live, animated Chart.js visualizations.</span>
+                </div>
+            </button>
+            <button className="enhance-option" onClick={() => onEnhance('dummy')}>
+                <span className="icon">🔢</span>
+                <div className="text">
+                    <strong>Smart Dummy Data</strong>
+                    <span>Populate realistic KPIs, trends, and data tables instantly.</span>
+                </div>
+            </button>
+
+            <div className="enhance-section-label" style={{ marginTop: '24px' }}>Data Context</div>
             <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -58,14 +74,16 @@ const EnhancePanel: React.FC<EnhancePanelProps> = ({ onEnhance }) => {
                 <span className="icon">📄</span>
                 <div className="text">
                     <strong>File Populate</strong>
-                    <span>Extract metrics from documents or CSVs to fill your dashboard.</span>
+                    <span>Upload a document (PDF, CSV, etc.) to inject real metrics into your dashboard.</span>
                 </div>
             </button>
-            <button className="enhance-option" onClick={() => onEnhance('dummy')}>
-                <span className="icon">🔢</span>
+
+            <div className="enhance-section-label" style={{ marginTop: '24px' }}>AI Engineering</div>
+            <button className="enhance-option" style={{ border: '1px solid #6366f166', background: 'rgba(99, 102, 241, 0.05)' }} onClick={() => onEnhance('enhance-code')}>
+                <span className="icon">✨</span>
                 <div className="text">
-                    <strong>Smart Dummy Data</strong>
-                    <span>Populate realistic KPIs, trends, and data tables instantly.</span>
+                    <strong style={{ color: '#818cf8' }}>Enhance Code</strong>
+                    <span>Deep analysis to find data-heavy sections and inject professional analytics.</span>
                 </div>
             </button>
 
@@ -75,13 +93,6 @@ const EnhancePanel: React.FC<EnhancePanelProps> = ({ onEnhance }) => {
                 <div className="text">
                     <strong>A11y Fix (WCAG 2.1)</strong>
                     <span>Audit and fix ARIA, contrast, and semantic structure.</span>
-                </div>
-            </button>
-            <button className="enhance-option" onClick={() => onEnhance('charts')}>
-                <span className="icon">📊</span>
-                <div className="text">
-                    <strong>Interactive Charts</strong>
-                    <span>Identify data areas and inject live Chart.js visualizations.</span>
                 </div>
             </button>
             <button className="enhance-option" onClick={() => onEnhance('responsive')}>

@@ -1,3 +1,4 @@
+
 /* index.css - Immersive "Radical" Redesign */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
@@ -10,12 +11,18 @@
     --accent-color: #ffffff;
     --accent-bg: #27272a;
     
-    --input-bg: rgba(24, 24, 27, 0.8); /* Semi-transparent dark for floating input */
+    --input-bg: rgba(24, 24, 27, 0.6); /* Even more transparent for Aurora */
     --border-color: #27272a;
     --glass-border: rgba(255, 255, 255, 0.1);
 
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     --font-mono: 'Roboto Mono', monospace;
+
+    /* Aurora Colors */
+    --aurora-1: #4f46e5;
+    --aurora-2: #7c3aed;
+    --aurora-3: #0ea5e9;
+    --aurora-4: #ec4899;
 }
 
 html, body {
@@ -27,6 +34,127 @@ html, body {
 }
 
 #root { height: 100vh; width: 100vw; display: flex; flex-direction: column; }
+
+/* === Aurora Styles === */
+.aurora-container {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    background-color: var(--app-bg);
+    pointer-events: none;
+}
+
+.aurora-base {
+    position: absolute;
+    inset: 0;
+    background: var(--app-bg);
+}
+
+.aurora-layers {
+    position: absolute;
+    inset: -50%;
+    filter: blur(80px);
+}
+
+.aurora-blob {
+    position: absolute;
+    width: 60%;
+    height: 60%;
+    border-radius: 50%;
+    opacity: 0.5;
+    mix-blend-mode: screen;
+}
+
+.aurora-blob-1 {
+    background: var(--aurora-1);
+    top: 10%;
+    left: 10%;
+    animation: aurora-move-1 25s infinite alternate ease-in-out;
+}
+
+.aurora-blob-2 {
+    background: var(--aurora-2);
+    top: 50%;
+    right: 10%;
+    animation: aurora-move-2 30s infinite alternate ease-in-out;
+}
+
+.aurora-blob-3 {
+    background: var(--aurora-3);
+    bottom: 10%;
+    left: 20%;
+    animation: aurora-move-3 20s infinite alternate ease-in-out;
+}
+
+.aurora-blob-4 {
+    background: var(--aurora-4);
+    bottom: 20%;
+    right: 20%;
+    animation: aurora-move-4 35s infinite alternate ease-in-out;
+}
+
+.aurora-overlay {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, transparent 0%, var(--app-bg) 85%);
+}
+
+/* Redundant with new NoiseOverlay but kept for Aurora fallback */
+.aurora-grain {
+    position: absolute;
+    inset: 0;
+    opacity: 0.04;
+    pointer-events: none;
+}
+
+.aurora-grain svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* === Noise Overlay Component === */
+.noise-overlay-container {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10; /* Above background, below some content or at top for global texture */
+    pointer-events: none;
+    user-select: none;
+}
+
+.noise-svg {
+    width: 100%;
+    height: 100%;
+}
+
+@keyframes aurora-move-1 {
+    from { transform: translate(0, 0) scale(1) rotate(0); }
+    to { transform: translate(15%, 20%) scale(1.2) rotate(45deg); }
+}
+
+@keyframes aurora-move-2 {
+    from { transform: translate(0, 0) scale(1.2); }
+    to { transform: translate(-10%, -20%) scale(1) rotate(-30deg); }
+}
+
+@keyframes aurora-move-3 {
+    from { transform: translate(0, 0) scale(1) rotate(0); }
+    to { transform: translate(10%, -15%) scale(1.3) rotate(90deg); }
+}
+
+@keyframes aurora-move-4 {
+    from { transform: translate(0, 0) scale(1.1); }
+    to { transform: translate(-20%, 10%) scale(1.2) rotate(-60deg); }
+}
+
+/* Reduced Motion Fallback */
+@media (prefers-reduced-motion: reduce) {
+    .aurora-blob {
+        animation: none !important;
+    }
+}
 
 /* === Confirmation Modal === */
 .confirmation-modal-overlay {
