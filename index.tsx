@@ -41,9 +41,8 @@ import LayoutsPanel from './components/drawer/LayoutsPanel';
 import { 
     ThinkingIcon, CodeIcon, SparklesIcon, ArrowLeftIcon, 
     ArrowUpIcon, GridIcon, LayoutIcon, 
-    DownloadIcon, CopyIcon, HistoryIcon, UndoIcon, 
-    RedoIcon, SettingsIcon, WandIcon, ImageIcon, 
-    CloseIcon, MicIcon, ZapIcon, DiffIcon
+    UndoIcon, RedoIcon, SettingsIcon, WandIcon, ImageIcon, 
+    CloseIcon, MicIcon, ZapIcon, DiffIcon, HistoryIcon
 } from './components/Icons';
 
 function App() {
@@ -462,14 +461,48 @@ function App() {
                 if (focusedArtifactIndex === null) return;
                 const art = currentSession.artifacts[focusedArtifactIndex];
                 const base = art.originalHtml || art.html;
-                const wrapped = lo.name === "Standard Sidebar" ? base : `<style>${lo.css}</style><div class="layout-container">${base}</div>`;
+                
+                // Robust HTML wrapping to preserve scripts and valid structure
+                const scriptRegex = /<script\b[^>]*>([\s\S]*?)<\/script>/gim;
+                const styleRegex = /<style\b[^>]*>([\s\S]*?)<\/style>/gim;
+                const scripts = (base.match(scriptRegex) || []).join('\n');
+                const styles = (base.match(styleRegex) || []).join('\n');
+                const bodyContent = base
+                    .replace(/<!DOCTYPE html>/gi, '')
+                    .replace(/<html\b[^>]*>/gi, '')
+                    .replace(/<\/html>/gi, '')
+                    .replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '')
+                    .replace(/<body\b[^>]*>/gi, '')
+                    .replace(/<\/body>/gi, '')
+                    .replace(scriptRegex, '')
+                    .replace(styleRegex, '');
+
+                const wrapped = lo.name === "Standard Sidebar" 
+                    ? base 
+                    : `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <meta charset="UTF-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <script src="https://cdn.tailwindcss.com"></script>
+                            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+                            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+                            ${styles}
+                            <style>${lo.css}</style>
+                        </head>
+                        <body>
+                            <div class="layout-container">${bodyContent}</div>
+                            ${scripts}
+                        </body>
+                        </html>
+                    `;
+                
                 setSessions(prev => prev.map((s, i) => i === currentSessionIndex ? { ...s, artifacts: s.artifacts.map((a, j) => j === focusedArtifactIndex ? { ...a, html: wrapped, originalHtml: base, status: 'complete' } : a) } : s));
                 setDrawerState(s => ({...s, isOpen: false}));
-            }} onPreview={(e, lo) => {
+            }} onPreview={(e, lo, html) => {
                 e.stopPropagation();
-                const art = currentSession.artifacts[focusedArtifactIndex!];
-                const base = art.originalHtml || art.html;
-                setPreviewItem({ name: lo.name, html: `<style>${lo.css}</style><div class="layout-container">${base}</div>` });
+                setPreviewItem({ name: lo.name, html });
             }} />}
         </SideDrawer>
 
@@ -483,7 +516,11 @@ function App() {
                          <div className="empty-content">
                              <h1>DashGen</h1>
                              <p>Pro-grade Dashboards from Vision, Voice, or Text</p>
-                             <button className="surprise-button" onClick={() => handleSendMessage(INITIAL_PLACEHOLDERS[placeholderIndex])} disabled={isLoading}><SparklesIcon /> Quick Start</button>
+                             <div className="quick-start-wrapper">
+                                <button className="surprise-button" onClick={() => handleSendMessage(INITIAL_PLACEHOLDERS[placeholderIndex])} disabled={isLoading}>
+                                    <SparklesIcon /> Quick Start
+                                </button>
+                             </div>
                          </div>
                      </div>
                  )}
@@ -529,7 +566,7 @@ function App() {
                  </div>
             </div>
 
-            <div className={`floating-input-container ${focusedArtifactIndex !== null ? 'hidden' : ''}`}>
+            <div className={`floating-input-container ${focusedArtifactIndex !== null ? 'hidden' : ''} ${!hasStarted ? 'centered' : ''}`}>
                 <div className="floating-input-stack">
                     {selectedImage && (
                         <div className="image-preview-pill">

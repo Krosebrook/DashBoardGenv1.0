@@ -30,13 +30,13 @@ const ENHANCE_SECTIONS = [
     {
         title: "AI Engineering Core",
         items: [
-            { id: 'enhance-code', label: 'Deep Enhance Code', desc: 'Full architectural audit to optimize structure and interactivity.', icon: '✨', variant: 'purple' },
-            { id: 'dummy', label: 'Smart Dummy Data', desc: 'Inject realistic names, descriptions, and figures from your domain.', icon: '🔢' }
+            { id: 'enhance-code', label: 'Deep Enhance Code', desc: 'Full architectural audit to optimize structure and interactivity.', icon: '✨', variant: 'purple' }
         ]
     },
     {
         title: "Data & Content",
         items: [
+            { id: 'dummy', label: 'Smart Dummy Data', desc: 'Inject realistic business data, metrics, and placeholder images.', icon: '🔢', variant: 'green' },
             { id: 'file-populate', label: 'File Populate', desc: 'Upload a document (txt, pdf, csv, json, md) to inject real data.', icon: '📄', variant: 'blue' },
             { id: 'persona', label: 'Persona & Identity', desc: 'Generate and inject realistic user personas and brand identity.', icon: '👤' }
         ]
@@ -44,7 +44,7 @@ const ENHANCE_SECTIONS = [
     {
         title: "Technical Refinement",
         items: [
-            { id: 'a11y', label: 'Fix Accessibility', desc: 'Optimize ARIA labels, contrast, and semantic tags for WCAG.', icon: '♿' },
+            { id: 'a11y', label: 'Fix Accessibility', desc: 'Optimize ARIA labels, contrast, and semantic tags for WCAG 2.1.', icon: '♿' },
             { id: 'responsive', label: 'Mobile Optimization', desc: 'Refine CSS for perfect responsiveness across all devices.', icon: '📱' },
             { id: 'tailwind', label: 'Utility Refactor', desc: 'Rewrite all custom CSS using Tailwind CSS utility classes.', icon: '🌊', variant: 'cyan' },
             { id: 'format', label: 'Prettify', desc: 'Format and clean the code for maximum readability.', icon: '📝' }
@@ -53,7 +53,7 @@ const ENHANCE_SECTIONS = [
     {
         title: "Visual Intelligence",
         items: [
-            { id: 'charts', label: 'Interactive Charts', desc: 'Inject Chart.js canvas elements with live rendering scripts.', icon: '📈', variant: 'green' }
+            { id: 'charts', label: 'Interactive Charts', desc: 'Inject Chart.js canvas elements with live rendering scripts.', icon: '📈' }
         ]
     }
 ] as const;

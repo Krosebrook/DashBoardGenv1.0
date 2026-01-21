@@ -93,15 +93,27 @@ html, body {
 .mode-mobile .iframe-wrapper { width: 375px; background: #000; padding: 0 80px; box-sizing: content-box; }
 
 /* Input & Interaction */
-.floating-input-stack { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 650px; }
-.input-wrapper { background: var(--input-bg); backdrop-filter: blur(20px); border: 1px solid var(--border-color); border-radius: 999px; padding: 8px 10px 8px 20px; display: flex; align-items: center; gap: 10px; width: 100%; box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
+.floating-input-container {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 650px;
+    z-index: 102;
+    transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.floating-input-container.hidden { opacity: 0; pointer-events: none; transform: translate(-50%, 20px); }
+.floating-input-container.centered { bottom: auto; top: 55%; transform: translate(-50%, -50%); max-width: 700px; }
+
+.floating-input-stack { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
+.input-wrapper { background: var(--input-bg); backdrop-filter: blur(20px); border: 1px solid var(--border-color); border-radius: 999px; padding: 8px 10px 8px 20px; display: flex; align-items: center; gap: 10px; width: 100%; box-shadow: 0 20px 40px rgba(0,0,0,0.4); transition: all 0.3s; }
 .input-wrapper input { flex: 1; background: transparent; border: none; color: #fff; font-size: 1rem; outline: none; }
+.floating-input-container.centered .input-wrapper { padding: 12px 16px 12px 24px; box-shadow: 0 40px 80px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); }
 
 .mic-btn { background: transparent; border: none; color: var(--text-secondary); cursor: pointer; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
 .mic-btn:hover { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
 .mic-btn.active { color: #fff; background: #ef4444; animation: pulse-red 1.5s infinite; }
-
-@keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
 
 /* Prominent Variations Button */
 .variations-btn-pulse {
@@ -123,6 +135,7 @@ html, body {
 .empty-state {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     text-align: center; color: var(--text-secondary); z-index: 0; animation: ambientFadeIn 1.5s ease-out forwards; padding: 20px;
+    padding-bottom: 120px; /* Offset for centered input */
 }
 .empty-content { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 800px; }
 .empty-content h1 { 
@@ -139,6 +152,12 @@ html, body {
     margin: 4px 0 24px 0;
     opacity: 0.8;
 }
+.quick-start-wrapper { margin-top: 100px; /* Space below the centered input */ }
+.surprise-button {
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff;
+    padding: 10px 24px; border-radius: 99px; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 8px; transition: all 0.2s;
+}
+.surprise-button:hover { background: rgba(255,255,255,0.2); transform: translateY(-2px); }
 
 @keyframes ambientFadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes dramaticEntrance { 
@@ -263,4 +282,5 @@ html, body {
     .empty-content h1 { font-size: 4rem; }
     .global-controls { top: 12px; }
     .drawer-content { width: 100%; }
+    .floating-input-container.centered { width: 90%; max-width: none; }
 }

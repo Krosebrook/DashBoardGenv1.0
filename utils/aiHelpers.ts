@@ -99,7 +99,7 @@ export const buildEnhancementParts = async (
                - Populate tables with the actual rows found in the file.
                - Update chart labels and datasets to reflect the document's statistics.
             3. CONSISTENCY: Maintain the existing visual style, CSS classes, and structural integrity of the UI.
-            Return ONLY the complete, production-ready, standalone raw HTML.
+            4. FORMAT: Return ONLY the complete, production-ready, standalone raw HTML. No markdown code blocks.
         `;
 
         return [
@@ -119,9 +119,9 @@ export const buildEnhancementParts = async (
         case 'persona':
             enhancementPrompt = `
                 You are a world-class Branding and UX Content Strategist. Your task is to inject high-fidelity brand identity and realistic, diverse user personas. 
-                1. Brand Identity: Invent a professional company name and branding.
-                2. User Personas: Generate realistic, professional user names and roles.
-                3. Professional Portraits: Use professional photography URLs from Unsplash for avatars.
+                1. Brand Identity: Invent a professional company name and branding (colors, logo placeholder).
+                2. User Personas: Generate realistic, professional user names, roles, and bio snippets.
+                3. Images: Use specific, reliable placeholder URLs for professional portraits (e.g. https://i.pravatar.cc/300?u=[random]) or Unsplash-style placeholders (e.g. https://picsum.photos/seed/[random]/200/200).
                 4. Professional Copy: Replace all placeholder text with domain-accurate professional copy.
                 Return ONLY the complete updated raw HTML.
             `;
@@ -129,40 +129,52 @@ export const buildEnhancementParts = async (
         case 'a11y':
             enhancementPrompt = `
                 You are an expert Accessibility (A11y) Engineer. 
-                Audit and fix this dashboard HTML to meet WCAG standards:
-                1. Improve ARIA labels and roles.
-                2. Ensure sufficient color contrast.
-                3. Fix semantic HTML tag usage (headers, main, section, etc.).
+                Audit and fix this dashboard HTML to meet WCAG 2.1 AA standards:
+                1. Improve ARIA labels and roles (aria-label, role="button", etc.).
+                2. Ensure sufficient color contrast ratios for text (4.5:1 minimum).
+                3. Fix semantic HTML tag usage (use <header>, <main>, <nav>, <section> appropriately).
+                4. Add descriptive alt text to all images.
+                5. Ensure all interactive elements have visible focus states.
                 Return ONLY the complete fixed raw HTML.
             `;
             break;
         case 'format':
-            enhancementPrompt = 'Prettify and format the code for high readability. Return ONLY cleaned HTML.';
+            enhancementPrompt = 'Prettify and format the code for high developer readability. Add helpful comments for sections. Return ONLY cleaned HTML.';
             break;
         case 'dummy':
-            enhancementPrompt = 'Inject high-fidelity, realistic business KPIs and at least 10 rows of varied data into tables. Ensure trends and numbers look like live analytics. Use names, descriptions, and figures relevant to the dashboard\'s topic. Return ONLY updated HTML.';
+            enhancementPrompt = `
+                Inject high-fidelity, realistic business KPIs and at least 10 rows of varied data into tables. 
+                1. DATA: Ensure trends and numbers look like live analytics with realistic formatting (currency, percentages).
+                2. TEXT: Use names, descriptions, and figures relevant to the dashboard's topic. 
+                3. IMAGES: Replace placeholders with reliable image URLs:
+                   - Avatars: https://i.pravatar.cc/150?u=[random_string]
+                   - Product/Cover Images: https://picsum.photos/seed/[random_string]/400/300
+                4. INTEGRITY: Do not break the layout.
+                Return ONLY updated HTML.
+            `;
             break;
         case 'content':
-            enhancementPrompt = 'Scan the dashboard for image placeholders and replace them with high-resolution photography from Unsplash that matches the context. Return ONLY updated HTML.';
+            enhancementPrompt = 'Scan the dashboard for image placeholders and replace them with high-resolution photography placeholders from https://picsum.photos/seed/[random]/800/600. Return ONLY updated HTML.';
             break;
         case 'responsive':
             enhancementPrompt = `
                 You are a Responsive Design Expert. Refine this dashboard for perfect viewing on Mobile (375px), Tablet (768px), and Desktop (1440px).
-                1. Add a <meta name="viewport" ...> tag if missing.
-                2. Use CSS Grid/Flexbox with flex-wrap where appropriate.
+                1. Add a <meta name="viewport" content="width=device-width, initial-scale=1.0"> tag if missing.
+                2. Use CSS Grid/Flexbox with flex-wrap where appropriate to prevent overflow.
                 3. Adjust font sizes (clamp() or media queries) for readability on small screens.
-                4. Hide non-essential decorative elements on mobile.
-                5. Ensure touch targets are at least 44px.
+                4. Ensure touch targets are at least 44px.
+                5. Use hamburger menus or stackable navigation for mobile views.
                 Return ONLY the complete updated raw HTML.
             `;
             break;
         case 'tailwind':
             enhancementPrompt = `
                 You are a Senior Principal Frontend Engineer. Rewrite all custom CSS using Tailwind CSS utility classes exclusively.
-                1. Parse all CSS in <style> tags and move them into Tailwind utility classes directly on elements.
+                1. Parse all CSS in <style> tags and move them into Tailwind utility classes directly on HTML elements.
                 2. Remove all <style> blocks. No custom CSS should remain.
                 3. Add <script src="https://cdn.tailwindcss.com"></script> to the <head> if not present.
-                4. Use arbitrary value syntax bg-[#...] where needed to preserve specific colors.
+                4. Use arbitrary value syntax (e.g., bg-[#1a2b3c]) where needed to strictly preserve specific colors.
+                5. Maintain exact visual parity.
                 Return ONLY the complete updated raw HTML.
             `;
             break;
@@ -170,10 +182,11 @@ export const buildEnhancementParts = async (
             enhancementPrompt = `
                 You are a World-Class Data Visualization Engineer.
                 Automatically identify data-heavy areas (tables, lists, numeric grids) and inject Chart.js canvas elements with live rendering scripts.
-                1. Identify static data that would benefit from visualization.
+                1. Identify static data that would benefit from visualization (trends, distributions).
                 2. Add Chart.js CDN (<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>) to the <head>.
-                3. Inject <canvas> elements and a <script> block to initialize them with data extracted from the page.
-                4. Ensure charts are responsive and match the dashboard's color theme.
+                3. Inject <canvas> elements where appropriate.
+                4. Add a <script> block at the end of <body> to initialize charts with the data found in the page.
+                5. Ensure charts are responsive and match the dashboard's color theme.
                 Return ONLY the complete updated raw HTML.
             `;
             break;
