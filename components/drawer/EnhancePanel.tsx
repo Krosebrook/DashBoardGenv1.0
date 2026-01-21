@@ -26,16 +26,44 @@ interface EnhancePanelProps {
     onEnhance: (type: EnhanceType, file?: File) => void;
 }
 
+const ENHANCE_SECTIONS = [
+    {
+        title: "AI Engineering Core",
+        items: [
+            { id: 'enhance-code', label: 'Deep Enhance Code', desc: 'Full architectural audit to optimize structure and interactivity.', icon: '✨', variant: 'purple' },
+            { id: 'dummy', label: 'Smart Dummy Data', desc: 'Inject realistic names, descriptions, and figures from your domain.', icon: '🔢' }
+        ]
+    },
+    {
+        title: "Data & Content",
+        items: [
+            { id: 'file-populate', label: 'File Populate', desc: 'Upload a document (txt, pdf, csv, json, md) to inject real data.', icon: '📄', variant: 'blue' },
+            { id: 'persona', label: 'Persona & Identity', desc: 'Generate and inject realistic user personas and brand identity.', icon: '👤' }
+        ]
+    },
+    {
+        title: "Technical Refinement",
+        items: [
+            { id: 'a11y', label: 'Fix Accessibility', desc: 'Optimize ARIA labels, contrast, and semantic tags for WCAG.', icon: '♿' },
+            { id: 'responsive', label: 'Mobile Optimization', desc: 'Refine CSS for perfect responsiveness across all devices.', icon: '📱' },
+            { id: 'tailwind', label: 'Utility Refactor', desc: 'Rewrite all custom CSS using Tailwind CSS utility classes.', icon: '🌊', variant: 'cyan' },
+            { id: 'format', label: 'Prettify', desc: 'Format and clean the code for maximum readability.', icon: '📝' }
+        ]
+    },
+    {
+        title: "Visual Intelligence",
+        items: [
+            { id: 'charts', label: 'Interactive Charts', desc: 'Inject Chart.js canvas elements with live rendering scripts.', icon: '📈', variant: 'green' }
+        ]
+    }
+] as const;
+
 /**
  * EnhancePanel provides a list of AI-powered actions to modify the currently focused artifact.
- * It includes options for technical refactoring, content injection, and visual improvements.
+ * It uses a data-driven approach to render options in categorized sections.
  */
 const EnhancePanel: React.FC<EnhancePanelProps> = ({ onEnhance }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const handleFileClick = () => {
-        fileInputRef.current?.click();
-    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -46,25 +74,16 @@ const EnhancePanel: React.FC<EnhancePanelProps> = ({ onEnhance }) => {
         }
     };
 
+    const handleOptionClick = (id: string) => {
+        if (id === 'file-populate') {
+            fileInputRef.current?.click();
+        } else {
+            onEnhance(id as EnhanceType);
+        }
+    };
+
     return (
         <div className="enhance-panel">
-            <div className="enhance-section-label">AI Engineering Core</div>
-            <button className="enhance-option" style={{ border: '1px solid #6366f166', background: 'rgba(99, 102, 241, 0.05)' }} onClick={() => onEnhance('enhance-code')}>
-                <span className="icon">✨</span>
-                <div className="text">
-                    <strong style={{ color: '#818cf8' }}>Deep Enhance Code</strong>
-                    <span>Full architectural audit to optimize structure and interactivity.</span>
-                </div>
-            </button>
-            <button className="enhance-option" onClick={() => onEnhance('dummy')}>
-                <span className="icon">🔢</span>
-                <div className="text">
-                    <strong>Smart Dummy Data</strong>
-                    <span>Inject realistic names, descriptions, and figures from your domain.</span>
-                </div>
-            </button>
-            
-            <div className="enhance-section-label" style={{ marginTop: '24px' }}>Data & Content</div>
             <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -72,59 +91,28 @@ const EnhancePanel: React.FC<EnhancePanelProps> = ({ onEnhance }) => {
                 accept=".txt,.pdf,.csv,.json,.md"
                 onChange={handleFileChange}
             />
-            <button className="enhance-option" onClick={handleFileClick} style={{ border: '1px solid #3b82f644', background: 'rgba(59, 130, 246, 0.05)' }}>
-                <span className="icon">📄</span>
-                <div className="text">
-                    <strong style={{ color: '#3b82f6' }}>File Populate</strong>
-                    <span>Upload a document (txt, pdf, csv, json, md) to inject real data into your artifact.</span>
+            
+            {ENHANCE_SECTIONS.map((section, idx) => (
+                <div key={idx}>
+                    <div className="enhance-section-label" style={idx > 0 ? { marginTop: '24px' } : {}}>
+                        {section.title}
+                    </div>
+                    {section.items.map((item) => (
+                        <button 
+                            key={item.id} 
+                            className={`enhance-option ${item.variant || ''}`} 
+                            onClick={() => handleOptionClick(item.id)}
+                            style={idx > 0 || section.items.indexOf(item) > 0 ? { marginTop: '12px' } : {}}
+                        >
+                            <span className="icon">{item.icon}</span>
+                            <div className="text">
+                                <strong>{item.label}</strong>
+                                <span>{item.desc}</span>
+                            </div>
+                        </button>
+                    ))}
                 </div>
-            </button>
-            <button className="enhance-option" onClick={() => onEnhance('persona')}>
-                <span className="icon">👤</span>
-                <div className="text">
-                    <strong>Persona & Identity</strong>
-                    <span>Generate and inject realistic user personas, professional portraits, and brand identity elements.</span>
-                </div>
-            </button>
-
-            <div className="enhance-section-label" style={{ marginTop: '24px' }}>Technical Refinement</div>
-            <button className="enhance-option" onClick={() => onEnhance('a11y')}>
-                <span className="icon">♿</span>
-                <div className="text">
-                    <strong>Fix Accessibility</strong>
-                    <span>Optimize ARIA labels, contrast, and semantic tags for WCAG standards.</span>
-                </div>
-            </button>
-            <button className="enhance-option" onClick={() => onEnhance('responsive')}>
-                <span className="icon">📱</span>
-                <div className="text">
-                    <strong>Mobile Optimization</strong>
-                    <span>Refine CSS and layout to be perfectly responsive across all breakpoints (Mobile, Tablet, Desktop).</span>
-                </div>
-            </button>
-            <button className="enhance-option" onClick={() => onEnhance('tailwind')}>
-                <span className="icon">🌊</span>
-                <div className="text">
-                    <strong>Utility Refactor</strong>
-                    <span>Rewrite all custom CSS using Tailwind CSS utility classes exclusively.</span>
-                </div>
-            </button>
-            <button className="enhance-option" onClick={() => onEnhance('format')}>
-                <span className="icon">📝</span>
-                <div className="text">
-                    <strong>Prettify</strong>
-                    <span>Format and clean the code for maximum developer readability.</span>
-                </div>
-            </button>
-
-            <div className="enhance-section-label" style={{ marginTop: '24px' }}>Visual Intelligence</div>
-            <button className="enhance-option" onClick={() => onEnhance('charts')} style={{ border: '1px solid #10b98144', background: 'rgba(16, 185, 129, 0.05)' }}>
-                <span className="icon">📈</span>
-                <div className="text">
-                    <strong style={{ color: '#10b981' }}>Interactive Charts</strong>
-                    <span>Automatically identify data-heavy areas and inject Chart.js canvas elements with live rendering scripts.</span>
-                </div>
-            </button>
+            ))}
         </div>
     );
 };

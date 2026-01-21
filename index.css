@@ -182,6 +182,19 @@ html, body {
 .enhance-option .text strong { font-size: 0.95rem; }
 .enhance-option .text span { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; }
 
+/* Enhanced Option Variants */
+.enhance-option.purple { border-color: rgba(99, 102, 241, 0.4); background: rgba(99, 102, 241, 0.05); }
+.enhance-option.purple .text strong { color: #818cf8; }
+
+.enhance-option.blue { border-color: rgba(59, 130, 246, 0.4); background: rgba(59, 130, 246, 0.05); }
+.enhance-option.blue .text strong { color: #3b82f6; }
+
+.enhance-option.green { border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.05); }
+.enhance-option.green .text strong { color: #10b981; }
+
+.enhance-option.cyan { border-color: rgba(6, 182, 212, 0.4); background: rgba(6, 182, 212, 0.05); }
+.enhance-option.cyan .text strong { color: #22d3ee; }
+
 /* Settings Panel */
 .settings-panel { display: flex; flex-direction: column; gap: 24px; }
 .setting-group { display: flex; flex-direction: column; gap: 8px; }

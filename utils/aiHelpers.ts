@@ -147,11 +147,12 @@ export const buildEnhancementParts = async (
             break;
         case 'responsive':
             enhancementPrompt = `
-                You are a Responsive Design Expert. Refine this dashboard for perfect viewing on Mobile, Tablet, and Desktop.
-                1. Ensure grids and flex containers stack correctly.
-                2. Adjust font sizes and spacing for mobile.
-                3. Ensure sidebars and navigation are touch-friendly and hide/show correctly.
-                4. Add media queries if necessary or use flexible units.
+                You are a Responsive Design Expert. Refine this dashboard for perfect viewing on Mobile (375px), Tablet (768px), and Desktop (1440px).
+                1. Add a <meta name="viewport" ...> tag if missing.
+                2. Use CSS Grid/Flexbox with flex-wrap where appropriate.
+                3. Adjust font sizes (clamp() or media queries) for readability on small screens.
+                4. Hide non-essential decorative elements on mobile.
+                5. Ensure touch targets are at least 44px.
                 Return ONLY the complete updated raw HTML.
             `;
             break;
