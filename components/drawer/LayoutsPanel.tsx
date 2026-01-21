@@ -21,69 +21,53 @@ const LayoutsPanel: React.FC<LayoutsPanelProps> = ({ layouts, focusedArtifact, o
         // Use the focused artifact's code if available, otherwise fall back to the layout's static skeleton
         const baseHtml = focusedArtifact ? (focusedArtifact.originalHtml || focusedArtifact.html) : layout.previewHtml;
 
-        // --- Robust HTML Parsing for Previews ---
-        
-        let styleContent = '';
-        let headContent = '';
-        let bodyContent = baseHtml;
-        let bodyAttrs = '';
-
-        // 1. Extract content from <style> tags
+        // Extract internal scripts and styles to ensure interactivity in preview (e.g. Chart.js initialization)
+        const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
         const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
-        let match;
-        while ((match = styleRegex.exec(baseHtml)) !== null) {
-            styleContent += match[1] + '\n';
-        }
-
-        // 2. Extract content from <head> (keeping scripts/links but removing styles)
-        const headRegex = /<head[^>]*>([\s\S]*?)<\/head>/i;
-        const headMatch = headRegex.exec(baseHtml);
-        if (headMatch) {
-            headContent = headMatch[1].replace(styleRegex, '');
-        }
-
-        // 3. Extract content from <body> tags including attributes (classes, styles)
-        // We look for any attributes on the body tag to ensure the artifact's theme/logic persists
-        const bodyRegex = /<body([^>]*)>([\s\S]*?)<\/body>/i;
-        const bodyMatch = bodyRegex.exec(baseHtml);
         
-        if (bodyMatch) {
-            bodyAttrs = bodyMatch[1];
-            bodyContent = bodyMatch[2];
-        } else {
-            // Fallback: strip structural tags if not found
-            bodyContent = baseHtml.replace(styleRegex, '')
-                                  .replace(headRegex, '')
-                                  .replace(/<!DOCTYPE html>/i, '')
-                                  .replace(/<html[^>]*>/i, '')
-                                  .replace(/<\/html>/i, '');
-        }
+        let scripts = '';
+        let styles = '';
+        let match;
+        
+        while ((match = scriptRegex.exec(baseHtml)) !== null) scripts += match[0] + '\n';
+        while ((match = styleRegex.exec(baseHtml)) !== null) styles += match[0] + '\n';
 
-        // 4. Construct the clean preview document
-        // We ensure body has overflow: hidden to prevent scrollbars in thumbnails.
-        // The layout CSS is injected AFTER the artifact CSS to ensure correct overriding.
+        // Strip structural tags for embedding
+        let content = baseHtml
+            .replace(/<!DOCTYPE html>/i, '')
+            .replace(/<html[^>]*>/i, '')
+            .replace(/<\/html>/i, '')
+            .replace(/<head[^>]*>[\s\S]*?<\/head>/i, '')
+            .replace(/<body[^>]*>/i, '')
+            .replace(/<\/body>/i, '')
+            .replace(scriptRegex, '')
+            .replace(styleRegex, '');
+
         const isDefault = layout.name === "Standard Sidebar";
 
         return `
             <!DOCTYPE html>
             <html>
             <head>
-                ${headContent}
+                <meta charset="UTF-8">
+                <!-- External dependencies from the original head -->
+                <script src="https://cdn.tailwindcss.com"></script>
+                <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+                ${styles}
                 <style>
-                    /* Reset & Base Preview Styles */
-                    body { margin: 0; padding: 0; overflow: hidden; background: transparent; }
-                    /* Scrollbar hiding for cleaner thumbnails */
+                    body { margin: 0; padding: 0; overflow: hidden; background: transparent; font-family: 'Inter', sans-serif; }
+                    /* Scale content down slightly for the card preview */
+                    .preview-scaler { transform: scale(0.95); transform-origin: top left; width: 105.2%; height: 105.2%; }
                     ::-webkit-scrollbar { width: 0px; background: transparent; }
-                    
-                    /* Extracted Artifact Styles */
-                    ${styleContent}
-
-                    /* Layout-specific overrides (only applied if not the default layout) */
                     ${!isDefault ? layout.css : ''}
                 </style>
             </head>
-            <body ${bodyAttrs}>
-                ${!isDefault ? `<div class="layout-container">${bodyContent}</div>` : bodyContent}
+            <body>
+                <div class="preview-scaler">
+                    ${!isDefault ? `<div class="layout-container">${content}</div>` : content}
+                </div>
+                ${scripts}
             </body>
             </html>
         `;
@@ -103,12 +87,11 @@ const LayoutsPanel: React.FC<LayoutsPanelProps> = ({ layouts, focusedArtifact, o
                             loading="lazy" 
                             sandbox="allow-scripts allow-same-origin"
                         />
-                        {/* Overlay to prevent iframe interaction so the click event bubbles to the card */}
                         <div className="preview-overlay-click"></div>
                     </div>
                     <div className="sexy-label">
                         {lo.name}
-                        {focusedArtifact && <span className="live-badge">Live</span>}
+                        {focusedArtifact && <span className="live-badge">Live View</span>}
                     </div>
                 </div>
             ))}

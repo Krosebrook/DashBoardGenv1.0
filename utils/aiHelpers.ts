@@ -9,6 +9,10 @@ import { GenerationSettings } from '../types';
 
 /**
  * Reads a file and returns its base64 representation (without metadata prefix).
+ * Used for uploading files to the AI model for analysis.
+ * 
+ * @param file The file object to read.
+ * @returns A promise that resolves to the base64 encoded string.
  */
 export const readFileAsBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -25,7 +29,29 @@ export const readFileAsBase64 = (file: File): Promise<string> => {
 };
 
 /**
+ * Helper to get MIME type from file or extension.
+ * Ensures compatibility with Gemini API requirements for multimodal inputs.
+ */
+const getMimeType = (file: File): string => {
+    if (file.type) return file.type;
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    switch (ext) {
+        case 'md': return 'text/markdown';
+        case 'csv': return 'text/csv';
+        case 'json': return 'application/json';
+        case 'pdf': return 'application/pdf';
+        case 'txt': return 'text/plain';
+        default: return 'text/plain';
+    }
+};
+
+/**
  * Selects the appropriate Gemini model based on the complexity of the task.
+ * Complex tasks like persona generation, file analysis, and code refactoring 
+ * utilize the Pro model, while simpler tasks use Flash for speed.
+ * 
+ * @param type The type of enhancement requested.
+ * @returns The model name string.
  */
 export const getEnhancementModel = (type: EnhanceType): string => {
     const proModels: EnhanceType[] = [
@@ -42,6 +68,12 @@ export const getEnhancementModel = (type: EnhanceType): string => {
 
 /**
  * Constructs the multimodal parts for the enhancement request.
+ * Generates specific system prompts based on the enhance type.
+ * 
+ * @param type The specific enhancement action.
+ * @param currentHtml The current HTML code of the artifact.
+ * @param file Optional file input for data hydration tasks.
+ * @returns An array of content parts for the Gemini API.
  */
 export const buildEnhancementParts = async (
     type: EnhanceType, 
@@ -53,27 +85,32 @@ export const buildEnhancementParts = async (
     // File Population Strategy
     if (type === 'file-populate' && file) {
         const base64Data = await readFileAsBase64(file);
+        const mimeType = getMimeType(file);
         
         enhancementPrompt = `
-            You are an Expert Data Hydrator. I have provided a source document. 
-            1. ANALYZE: Extract all relevant metrics, KPIs, table rows, and statistical trends from the provided document.
-            2. INJECT: Map this real-world data into the existing dashboard HTML:
-               - Replace "Lorem Ipsum", generic numbers, and "Placeholder" strings with data from the document.
-               - Populate data tables with extracted rows.
-               - Ensure chart labels and values reflect the document's content.
-            3. ACCURACY: Maintain the existing UI structure, styles, and logic.
-            Return ONLY the complete updated raw HTML.
+            You are an Expert Data Hydrator. I have provided a source document (${file.name}). 
+            1. ANALYZE: Carefully read the provided document and extract all key data points: 
+               - Specific metrics (numbers, percentages, dates)
+               - Table rows and columns
+               - Usernames, roles, or company-specific terminology
+               - Recent trends or status updates
+            2. INJECT: Deeply integrate this real data into the existing dashboard HTML:
+               - Replace ALL "Lorem Ipsum", generic "Placeholder" strings, and static mockup numbers with values from the document.
+               - Populate tables with the actual rows found in the file.
+               - Update chart labels and datasets to reflect the document's statistics.
+            3. CONSISTENCY: Maintain the existing visual style, CSS classes, and structural integrity of the UI.
+            Return ONLY the complete, production-ready, standalone raw HTML.
         `;
 
         return [
             {
                 inlineData: {
                     data: base64Data,
-                    mimeType: file.type || 'text/plain'
+                    mimeType: mimeType
                 }
             },
             { text: enhancementPrompt },
-            { text: `Existing Code:\n${currentHtml}` }
+            { text: `Existing Dashboard Code to hydrate:\n${currentHtml}` }
         ];
     }
 
@@ -81,74 +118,71 @@ export const buildEnhancementParts = async (
     switch (type) {
         case 'persona':
             enhancementPrompt = `
-                You are a world-class Branding and UX Content Strategist. Your task is to inject a high-fidelity brand identity and realistic, diverse user personas into this dashboard. 
-                1. Brand Identity: Invent a professional company name, a mission statement, and replace all 'Logo' or 'Company' placeholders with this cohesive identity.
-                2. User Personas: Generate highly realistic, diverse, and professional user names and roles. Inject these into any 'User Profile', 'Assigned To', or 'Team' sections.
-                3. Professional Portraits: Replace generic avatars with high-quality, professional photography URLs from Unsplash.
-                4. Professional Copy: Replace all 'Lorem Ipsum', 'Test Data', or generic strings with contextually accurate, professional domain content.
+                You are a world-class Branding and UX Content Strategist. Your task is to inject high-fidelity brand identity and realistic, diverse user personas. 
+                1. Brand Identity: Invent a professional company name and branding.
+                2. User Personas: Generate realistic, professional user names and roles.
+                3. Professional Portraits: Use professional photography URLs from Unsplash for avatars.
+                4. Professional Copy: Replace all placeholder text with domain-accurate professional copy.
                 Return ONLY the complete updated raw HTML.
             `;
             break;
         case 'a11y':
             enhancementPrompt = `
-                You are an expert Accessibility (A11y) Engineer specializing in WCAG 2.1 AA/AAA standards. 
-                Audit and fix this dashboard HTML:
-                1. Contrast: Adjust CSS colors to ensure AA/AAA compliance.
-                2. Semantics: Refactor elements to use proper HTML5 semantic tags.
-                3. ARIA: Add descriptive aria-labels, roles, and states.
-                4. Focus: Ensure logical tab order and visible focus states.
+                You are an expert Accessibility (A11y) Engineer. 
+                Audit and fix this dashboard HTML to meet WCAG standards:
+                1. Improve ARIA labels and roles.
+                2. Ensure sufficient color contrast.
+                3. Fix semantic HTML tag usage (headers, main, section, etc.).
                 Return ONLY the complete fixed raw HTML.
             `;
             break;
         case 'format':
-            enhancementPrompt = 'Prettify and format the code for high readability. Ensure standard indentation and clean organization of CSS and JS. Return ONLY cleaned HTML.';
+            enhancementPrompt = 'Prettify and format the code for high readability. Return ONLY cleaned HTML.';
             break;
         case 'dummy':
-            enhancementPrompt = 'Identify the domain of this dashboard. Inject high-fidelity, realistic business KPIs and at least 10 rows of varied data into tables. Ensure trends and numbers are consistent and look like live analytics. Return ONLY updated HTML.';
+            enhancementPrompt = 'Inject high-fidelity, realistic business KPIs and at least 10 rows of varied data into tables. Ensure trends and numbers look like live analytics. Use names, descriptions, and figures relevant to the dashboard\'s topic. Return ONLY updated HTML.';
             break;
         case 'content':
-            enhancementPrompt = 'Visual Storytelling: Scan the dashboard for image placeholders and replace them with beautiful, high-resolution photography from Unsplash that matches the professional context. Return ONLY updated HTML.';
+            enhancementPrompt = 'Scan the dashboard for image placeholders and replace them with high-resolution photography from Unsplash that matches the context. Return ONLY updated HTML.';
             break;
         case 'responsive':
             enhancementPrompt = `
-                You are a world-class Responsive Design Expert. Refine the provided dashboard for perfect viewing on Mobile, Tablet, and Desktop. 
-                1. Grids: Implement fluid CSS Grid or Flexbox layouts that stack gracefully.
-                2. Navigation: Ensure sidebars collapse into a drawer or hamburger menu for mobile.
-                3. Touch Targets: Ensure all buttons and links are at least 44x44px on mobile.
+                You are a Responsive Design Expert. Refine this dashboard for perfect viewing on Mobile, Tablet, and Desktop.
+                1. Ensure grids and flex containers stack correctly.
+                2. Adjust font sizes and spacing for mobile.
+                3. Ensure sidebars and navigation are touch-friendly and hide/show correctly.
+                4. Add media queries if necessary or use flexible units.
                 Return ONLY the complete updated raw HTML.
             `;
             break;
         case 'tailwind':
             enhancementPrompt = `
-                You are a Senior Principal Frontend Engineer. Your task is to refactor this entire dashboard to use Tailwind CSS utility classes exclusively.
-                1. COMPLETE EXTRACTION: Parse all CSS within <style> tags and move them into Tailwind utility classes directly on the HTML elements.
-                2. REMOVAL: Delete the original <style> blocks after the conversion is complete to ensure no redundancy.
-                3. CDN INTEGRATION: Ensure the script <script src="https://cdn.tailwindcss.com"></script> is in the <head>.
-                4. ARBITRARY VALUES: For complex or specific CSS values that don't fit the standard Tailwind scale (e.g. specific colors or dimensions), use Tailwind's arbitrary value syntax: e.g. bg-[#1a2b3c] or h-[123px].
-                5. RESPONSIVE & STATES: Map all media queries to Tailwind prefixes (md:, lg:, etc.) and pseudo-states to (hover:, focus:, active:).
-                Return ONLY the complete, cleaned, and updated raw HTML.
+                You are a Senior Principal Frontend Engineer. Rewrite all custom CSS using Tailwind CSS utility classes exclusively.
+                1. Parse all CSS in <style> tags and move them into Tailwind utility classes directly on elements.
+                2. Remove all <style> blocks. No custom CSS should remain.
+                3. Add <script src="https://cdn.tailwindcss.com"></script> to the <head> if not present.
+                4. Use arbitrary value syntax bg-[#...] where needed to preserve specific colors.
+                Return ONLY the complete updated raw HTML.
             `;
             break;
         case 'charts':
             enhancementPrompt = `
                 You are a World-Class Data Visualization Engineer.
-                Your mission: Transform static data sections into live, interactive Chart.js visualizations.
-                1. IDENTIFICATION: Scan the dashboard for data-heavy sections (HTML tables, numeric grids, KPI lists, static graphs).
-                2. INJECTION:
-                   - Add the Chart.js CDN script (<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>) to the <head>.
-                   - Replace identified static areas with <canvas> elements.
-                3. LIVE RENDERING:
-                   - Insert a <script> block that initializes these charts with realistic, trend-aligned data.
-                   - Implement beautiful, responsive configurations (smooth animations, custom tooltips, theme-consistent colors).
+                Automatically identify data-heavy areas (tables, lists, numeric grids) and inject Chart.js canvas elements with live rendering scripts.
+                1. Identify static data that would benefit from visualization.
+                2. Add Chart.js CDN (<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>) to the <head>.
+                3. Inject <canvas> elements and a <script> block to initialize them with data extracted from the page.
+                4. Ensure charts are responsive and match the dashboard's color theme.
                 Return ONLY the complete updated raw HTML.
             `;
             break;
         case 'enhance-code':
             enhancementPrompt = `
-                You are a Senior Principal Frontend Engineer. Your task is to perform a deep "Enhance Code" operation.
-                1. Analysis: Scan the artifact for data-heavy areas, generic patterns, and inefficient layout logic.
-                2. Intelligence: Inject Chart.js and replace static data tables or lists with animated, interactive canvas charts.
-                3. Refinement: Improve naming conventions, optimize CSS performance, and ensure the resulting code is of production-grade quality.
+                You are a Senior Principal Frontend Engineer. Perform a deep "Enhance Code" operation.
+                1. Optimize layout logic and CSS performance.
+                2. Inject Chart.js for data visualization where appropriate.
+                3. Refine visual polish, spacing, and typography.
+                4. Improve code structure and comments.
                 Return ONLY the complete updated raw HTML.
             `;
             break;
@@ -160,26 +194,90 @@ export const buildEnhancementParts = async (
 };
 
 /**
- * Generates the prompt for creating new dashboard artifacts.
+ * Constructs multimodal parts for initial generation (Vision-to-Code) or Text-to-Code.
+ * 
+ * @param prompt The user's description or request.
+ * @param style The requested visual style (e.g., "Dark Futurism").
+ * @param settings Generation settings (framework, auto-enhancements).
+ * @param image Optional image for Vision-to-Code.
+ * @returns An array of content parts for the Gemini API.
  */
-export const getGenerationPrompt = (prompt: string, style: string, settings: GenerationSettings): string => {
+export const buildGenerationParts = async (
+    prompt: string, 
+    style: string, 
+    settings: GenerationSettings,
+    image?: File
+): Promise<any[]> => {
     const frameworkContext = settings.framework !== 'vanilla' 
         ? `Using ${settings.framework} for component patterns.` 
         : "Using vanilla HTML/CSS.";
+
+    const dataContext = settings.dataContext.trim() 
+        ? `Use this data context: "${settings.dataContext}".` 
+        : "Use realistic industry-standard dummy data.";
+
+    // Assemble dynamic enhancements based on user settings
+    const enhancements = [];
+    if (settings.autoA11y) enhancements.push("- Ensure WCAG 2.1 AA/AAA accessibility (ARIA, contrast, semantics).");
+    if (settings.autoCharts) enhancements.push("- Detect numeric trends and inject interactive Chart.js visualizations.");
+    if (settings.autoPersonas) enhancements.push("- Inject realistic brand personas, professional user profiles, and a cohesive brand identity.");
+    
+    const enhancementString = enhancements.length > 0 
+        ? `\nMandatory AI Enhancements:\n${enhancements.join('\n')}` 
+        : "";
+
+    let textPrompt = '';
+
+    if (image) {
+        textPrompt = `
+        You are a Senior Frontend Engineer. 
+        TASK: Clone the UI structure and visual style shown in the provided image as closely as possible.
+        CONTEXT: The user has also provided this description: "${prompt}".
+        STYLE GUIDE: The user requested the style concept "${style}". Merge this with the image's layout.
+        FRAMEWORK: ${frameworkContext}
+        DATA: ${dataContext}
+        ${enhancementString}
+        REQUIREMENTS:
+        - Analyze the image layout, spacing, colors, and typography.
+        - Recreate the dashboard components (sidebar, charts, tables, cards).
+        - Use placeholder data that matches the image context.
+        - Ensure the code is responsive and production-ready.
+        Return ONLY standalone raw HTML.
+        `;
         
-    return `Expert Frontend Developer. Create a high-fidelity, polished dashboard for: "${prompt}". 
-    Style Concept: ${style}. 
-    Framework Context: ${frameworkContext}
-    Include: 
-    - Sidebar and Top Navigation
-    - KPI cards with icons
-    - A professional data table
-    - Realistic dummy metrics
-    Return ONLY standalone raw HTML.`;
+        const base64Data = await readFileAsBase64(image);
+        return [
+            {
+                inlineData: {
+                    data: base64Data,
+                    mimeType: image.type || 'image/png'
+                }
+            },
+            { text: textPrompt }
+        ];
+    } else {
+        textPrompt = `Expert Frontend Developer. Create a high-fidelity, polished dashboard for: "${prompt}". 
+        Style Concept: ${style}. 
+        Framework Context: ${frameworkContext}
+        DATA: ${dataContext}
+        ${enhancementString}
+        Include: 
+        - Sidebar and Top Navigation
+        - KPI cards with icons
+        - A professional data table
+        - Realistic metrics
+        Return ONLY standalone raw HTML.`;
+        
+        return [{ text: textPrompt }];
+    }
 };
 
 /**
- * Generates the prompt for iterative refinements.
+ * Generates the prompt for iterative refinements in the chat interface.
+ * 
+ * @param instruction The user's conversational refinement request.
+ * @param currentHtml The current HTML state.
+ * @returns The complete prompt string.
  */
 export const getIterationPrompt = (instruction: string, currentHtml: string): string => {
     return `Senior Frontend Engineer. Modify the following dashboard interface.

@@ -1,6 +1,16 @@
 {
-  "name": "DashGen",
-  "description": "An AI-powered dashboard generator. Create full-stack ready dashboard UIs with charts, grids, and responsive layouts instantly.",
-  "requestFramePermissions": [],
-  "prompt": ""
+  "name": "DashGen Pro",
+  "description": "Enterprise AI Dashboard Generator with Vision-to-Code cloning, Voice input, multimodal data hydration, and one-click StackBlitz deployment.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "features": [
+    "Vision-to-Code cloning via Gemini 3 Pro Vision",
+    "Voice Command input for hands-free iteration",
+    "Multimodal Data Injection (PDF/CSV/JSON support)",
+    "Automatic WCAG 2.1 A11y & Chart.js injection",
+    "Device Simulator for responsive verification",
+    "One-click Export to StackBlitz Cloud IDE",
+    "Smart Diff View for version comparison"
+  ]
 }

@@ -28,4 +28,6 @@ export interface GenerationSettings {
     framework: Framework;
     dataContext: string; // JSON or text description of data
     autoA11y: boolean;   // Automatically enhance accessibility
+    autoCharts: boolean; // Automatically inject interactive charts
+    autoPersonas: boolean; // Automatically inject brand personas
 }
