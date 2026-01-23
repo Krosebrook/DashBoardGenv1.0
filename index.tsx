@@ -42,7 +42,7 @@ import {
     ThinkingIcon, CodeIcon, SparklesIcon, ArrowLeftIcon, 
     ArrowUpIcon, GridIcon, LayoutIcon, 
     UndoIcon, RedoIcon, SettingsIcon, WandIcon, ImageIcon, 
-    CloseIcon, MicIcon, ZapIcon, DiffIcon, HistoryIcon
+    CloseIcon, MicIcon, ZapIcon, DiffIcon, HistoryIcon, PaperclipIcon
 } from './components/Icons';
 
 function App() {
@@ -63,6 +63,7 @@ function App() {
   const [isDiffMode, setIsDiffMode] = useState(false);
   const [inputValue, setInputValue] = useState<string>('');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [selectedDataFile, setSelectedDataFile] = useState<File | null>(null);
   const [iterationInput, setIterationInput] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isListening, setIsListening] = useState(false);
@@ -98,6 +99,7 @@ function App() {
   const inputRef = useRef<HTMLInputElement>(null);
   const iterationInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const dataInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
 
   // --- Helpers ---
@@ -146,11 +148,11 @@ function App() {
   }, [sessions]);
 
   useEffect(() => {
-      if (!isLoading && !selectedImage && !isListening) {
+      if (!isLoading && !selectedImage && !isListening && !selectedDataFile) {
           if (focusedArtifactIndex !== null) iterationInputRef.current?.focus();
           else inputRef.current?.focus();
       }
-  }, [isLoading, selectedImage, isListening, focusedArtifactIndex]);
+  }, [isLoading, selectedImage, isListening, focusedArtifactIndex, selectedDataFile]);
 
   useEffect(() => {
       const interval = setInterval(() => {
@@ -163,6 +165,13 @@ function App() {
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files[0]) {
           setSelectedImage(e.target.files[0]);
+          inputRef.current?.focus();
+      }
+  };
+
+  const handleDataSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+          setSelectedDataFile(e.target.files[0]);
           inputRef.current?.focus();
       }
   };
@@ -233,16 +242,24 @@ function App() {
         } : s));
 
         const generateVar = async (id: string, style: string) => {
-            const prompt = `Senior Designer. Create a creative visual variation of the provided dashboard HTML. 
-            Maintain the layout hierarchy and data context, but change the aesthetic (e.g., color scheme, border radius, shadows, fonts, or component styles like glassmorphism vs neo-brutalist).
-            Original Prompt: "${currentSession.prompt}"
-            Concept: ${style}
-            Existing Code:
-            ${sourceArtifact.html}
-            Return ONLY raw HTML.`;
+            const prompt = `You are a Principal UI Engineer. 
+            TASK: Create a distinct, high-fidelity variation of the dashboard provided below.
+            
+            DESIGN DIRECTION: ${style}
+            
+            INSTRUCTIONS:
+            1. RETAIN: All data points, charts, and structural hierarchy.
+            2. EVOLVE: The visual language (typography, spacing, corner radius, shadows, color palette).
+            3. POLISH: Ensure WCAG AA contrast and professional "Dribbble-ready" aesthetics.
+            4. OUTPUT: Return ONLY the raw HTML code (no markdown).
+
+            CONTEXT: "${currentSession.prompt}"
+            
+            BASE CODE:
+            ${sourceArtifact.html}`;
 
             const stream = await ai.models.generateContentStream({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-3-pro-preview',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
 
@@ -263,7 +280,11 @@ function App() {
             } : s));
         };
 
-        await Promise.all(variationIds.map((id, i) => generateVar(id, i === 0 ? "Alternative Minimalist" : "Futuristic Dark")));
+        // Use distinct, high-value themes
+        await Promise.all([
+            generateVar(variationIds[0], "Modern Minimalist (Clean, Airy, Inter font, Soft Shadows)"),
+            generateVar(variationIds[1], "Futuristic Cyberpunk (Dark, Neon Accents, Mono font, Glassmorphism)")
+        ]);
     } catch (e) { console.error(e); } finally { setIsLoading(false); }
   };
 
@@ -307,13 +328,16 @@ function App() {
     const promptToUse = manualPrompt || inputValue;
     const trimmed = promptToUse.trim();
     const hasImage = !!selectedImage;
+    const hasData = !!selectedDataFile;
 
-    if ((!trimmed && !hasImage) || isLoading) return;
+    if ((!trimmed && !hasImage && !hasData) || isLoading) return;
     
     if (!manualPrompt) {
         setInputValue('');
         setSelectedImage(null);
+        setSelectedDataFile(null);
         if (imageInputRef.current) imageInputRef.current.value = '';
+        if (dataInputRef.current) dataInputRef.current.value = '';
     }
 
     setIsLoading(true);
@@ -325,9 +349,13 @@ function App() {
         status: 'streaming',
     }));
 
+    let sessionPrompt = trimmed;
+    if (hasImage) sessionPrompt = `Vision Clone + "${trimmed}"`;
+    if (hasData) sessionPrompt = `Data Viz (${selectedDataFile?.name}) + "${trimmed}"`;
+
     const newSession: Session = {
         id: sessionId,
-        prompt: hasImage ? `Vision Clone + "${trimmed}"` : trimmed,
+        prompt: sessionPrompt,
         timestamp: Date.now(),
         artifacts: placeholderArtifacts
     };
@@ -338,9 +366,11 @@ function App() {
 
     try {
         const ai = getAiClient();
-        let styles = hasImage ? ["Exact Replica", "Modern Refinement", "Dark Theme variant"] : ["Concept Alpha", "Concept Beta", "Concept Gamma"];
+        let styles = (hasImage || hasData) 
+            ? ["Exact Representation", "Modern Refinement", "Dark Theme variant"] 
+            : ["Concept Alpha", "Concept Beta", "Concept Gamma"];
 
-        if (!hasImage) {
+        if (!hasImage && !hasData) {
             const stylePrompt = `Generate 3 distinct UI concept names for: "${trimmed}". JSON array of strings only.`;
             const styleRes = await ai.models.generateContent({
                 model: 'gemini-3-flash-preview',
@@ -358,8 +388,16 @@ function App() {
         } : s));
 
         const generate = async (artifact: Artifact, style: string) => {
-            const parts = await buildGenerationParts(trimmed, style, settings, hasImage ? selectedImage! : undefined);
-            const model = hasImage ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
+            // Updated to pass selectedDataFile
+            const parts = await buildGenerationParts(
+                trimmed, 
+                style, 
+                settings, 
+                hasImage ? selectedImage! : undefined,
+                hasData ? selectedDataFile! : undefined
+            );
+            // Use Pro model if we have data or image for higher fidelity/reasoning
+            const model = (hasImage || hasData) ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
 
             const stream = await ai.models.generateContentStream({ model, contents: [{ parts, role: "user" }] });
             let acc = '';
@@ -381,7 +419,7 @@ function App() {
 
         await Promise.all(placeholderArtifacts.map((art, i) => generate(art, styles[i])));
     } catch (e) { console.error(e); } finally { setIsLoading(false); }
-  }, [inputValue, selectedImage, isLoading, settings, getAiClient, setSessions]);
+  }, [inputValue, selectedImage, selectedDataFile, isLoading, settings, getAiClient, setSessions]);
 
   const handleExportToStackBlitz = () => {
     if (focusedArtifactIndex === null || !currentSession) return;
@@ -462,7 +500,6 @@ function App() {
                 const art = currentSession.artifacts[focusedArtifactIndex];
                 const base = art.originalHtml || art.html;
                 
-                // Robust HTML wrapping to preserve scripts and valid structure
                 const scriptRegex = /<script\b[^>]*>([\s\S]*?)<\/script>/gim;
                 const styleRegex = /<style\b[^>]*>([\s\S]*?)<\/style>/gim;
                 const scripts = (base.match(scriptRegex) || []).join('\n');
@@ -556,13 +593,13 @@ function App() {
                     </div>
                  </div>
                  <div className="action-buttons">
-                    <button onClick={() => {setFocusedArtifactIndex(null); setIsDiffMode(false);}}><GridIcon /> Grid</button>
-                    <button onClick={() => setIsDiffMode(!isDiffMode)} className={isDiffMode ? 'active' : ''}><DiffIcon /> Comparison</button>
-                    <button onClick={handleGenerateVariations} className="variations-btn-pulse"><SparklesIcon /> Generate Variations</button>
-                    <button onClick={() => setDrawerState({ isOpen: true, mode: 'enhance', title: 'AI Enhancements', data: null })}><WandIcon /> AI Enhancements</button>
-                    <button onClick={() => setDrawerState({ isOpen: true, mode: 'layouts', title: 'Layout Templates', data: null })}><LayoutIcon /> Layouts</button>
-                    <button onClick={handleExportToStackBlitz}><ZapIcon /> Cloud Export</button>
-                    <button onClick={() => setDrawerState({ isOpen: true, mode: 'code', title: 'Direct Code Edit', data: currentSession?.artifacts[focusedArtifactIndex!].html })}><CodeIcon /> Editor</button>
+                    <button onClick={handleGenerateVariations} className="variations-btn-pulse" title="Generate Style Variations" aria-label="Generate Variations"><SparklesIcon /> Generate Variations</button>
+                    <button onClick={() => {setFocusedArtifactIndex(null); setIsDiffMode(false);}} title="Back to Grid"><GridIcon /> Grid</button>
+                    <button onClick={() => setIsDiffMode(!isDiffMode)} className={isDiffMode ? 'active' : ''} title="Compare Versions"><DiffIcon /> Comparison</button>
+                    <button onClick={() => setDrawerState({ isOpen: true, mode: 'enhance', title: 'AI Enhancements', data: null })} title="AI Refinements"><WandIcon /> AI Enhancements</button>
+                    <button onClick={() => setDrawerState({ isOpen: true, mode: 'layouts', title: 'Layout Templates', data: null })} title="Switch Layouts"><LayoutIcon /> Layouts</button>
+                    <button onClick={handleExportToStackBlitz} title="Open in Cloud IDE"><ZapIcon /> Cloud Export</button>
+                    <button onClick={() => setDrawerState({ isOpen: true, mode: 'code', title: 'Direct Code Edit', data: currentSession?.artifacts[focusedArtifactIndex!].html })} title="Direct Editor"><CodeIcon /> Editor</button>
                  </div>
             </div>
 
@@ -574,10 +611,21 @@ function App() {
                             <button onClick={() => setSelectedImage(null)}><CloseIcon /></button>
                         </div>
                     )}
+                    {selectedDataFile && (
+                        <div className="image-preview-pill" style={{ borderColor: 'rgba(16, 185, 129, 0.3)', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399' }}>
+                            <span>Data: {selectedDataFile.name}</span>
+                            <button onClick={() => setSelectedDataFile(null)}><CloseIcon /></button>
+                        </div>
+                    )}
                     <div className={`input-wrapper ${isLoading ? 'loading' : ''} ${isListening ? 'listening' : ''}`}>
                         <input type="file" accept="image/*" ref={imageInputRef} style={{ display: 'none' }} onChange={handleImageSelect} />
+                        <input type="file" accept=".csv,.json,.txt,.md,.pdf" ref={dataInputRef} style={{ display: 'none' }} onChange={handleDataSelect} />
+                        
                         <button className="upload-btn" onClick={() => imageInputRef.current?.click()} title="Vision-to-Code">
                             <ImageIcon />
+                        </button>
+                        <button className="upload-btn" onClick={() => dataInputRef.current?.click()} title="Attach Data Source (CSV/JSON/PDF)">
+                            <PaperclipIcon />
                         </button>
                         <button className={`mic-btn ${isListening ? 'active' : ''}`} onClick={toggleListening} title="Voice Prompt">
                             <MicIcon />
@@ -585,12 +633,12 @@ function App() {
                         <input 
                             ref={inputRef} 
                             type="text" 
-                            placeholder={isListening ? "Listening..." : (selectedImage ? "Describe changes to this UI..." : INITIAL_PLACEHOLDERS[placeholderIndex])} 
+                            placeholder={isListening ? "Listening..." : (selectedImage ? "Describe changes..." : (selectedDataFile ? "Visualize this data..." : INITIAL_PLACEHOLDERS[placeholderIndex]))} 
                             value={inputValue} 
                             onChange={(e) => setInputValue(e.target.value)} 
                             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} 
                         />
-                        <button className="send-button" onClick={() => handleSendMessage()} disabled={isLoading || (!inputValue.trim() && !selectedImage)}>
+                        <button className="send-button" onClick={() => handleSendMessage()} disabled={isLoading || (!inputValue.trim() && !selectedImage && !selectedDataFile)}>
                             <ArrowUpIcon />
                         </button>
                     </div>

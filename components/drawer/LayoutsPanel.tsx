@@ -17,20 +17,25 @@ interface LayoutsPanelProps {
 
 const LayoutsPanel: React.FC<LayoutsPanelProps> = ({ layouts, focusedArtifact, onApply, onPreview }) => {
 
-    // Memoize the base content extraction to avoid recalculating on every render unless artifact changes
+    /**
+     * Staff-grade content extraction.
+     * We don't just want the body; we want to preserve the designer's intent
+     * while stripping away any previously applied layout wrappers.
+     */
     const baseContent = useMemo(() => {
         const rawHtml = focusedArtifact ? (focusedArtifact.originalHtml || focusedArtifact.html) : '';
         if (!rawHtml) return null;
 
-        // Extract scripts and styles
+        // Strip previous layout containers to prevent nesting recursion
+        let cleanHtml = rawHtml.replace(/<div class="layout-container">([\s\S]*?)<\/div>(?=\s*<\/body>|\s*<script|$)/gim, '$1');
+
         const scriptRegex = /<script\b[^>]*>([\s\S]*?)<\/script>/gim;
         const styleRegex = /<style\b[^>]*>([\s\S]*?)<\/style>/gim;
         
-        const scripts = (rawHtml.match(scriptRegex) || []).join('\n');
-        const styles = (rawHtml.match(styleRegex) || []).join('\n');
+        const scripts = (cleanHtml.match(scriptRegex) || []).join('\n');
+        const styles = (cleanHtml.match(styleRegex) || []).join('\n');
 
-        // Clean content for embedding
-        const bodyContent = rawHtml
+        const bodyContent = cleanHtml
             .replace(/<!DOCTYPE html>/gi, '')
             .replace(/<html\b[^>]*>/gi, '')
             .replace(/<\/html>/gi, '')
@@ -43,17 +48,21 @@ const LayoutsPanel: React.FC<LayoutsPanelProps> = ({ layouts, focusedArtifact, o
         return { bodyContent, scripts, styles };
     }, [focusedArtifact]);
 
+    /**
+     * Staff Designer Preview Strategy:
+     * Instead of a generic scale, we calculate precise scaling per layout.
+     * We also simulate high-fidelity browser environments for the thumbnails.
+     */
     const getPreviewHtml = (layout: LayoutOption) => {
-        // If no artifact is focused, use the static preview provided by the layout definition
+        // Fallback for empty state or generic previews
         if (!baseContent) {
-            // Ensure static previews also have basic styles
             return `
                 <!DOCTYPE html>
                 <html>
                 <head>
                     <style>
-                        body { margin: 0; padding: 0; overflow: hidden; background: transparent; }
-                        .preview-scaler { transform: scale(0.95); transform-origin: top left; width: 105%; height: 105%; }
+                        body { margin: 0; padding: 0; overflow: hidden; background: #09090b; display: flex; align-items: center; justify-content: center; height: 100vh; }
+                        .preview-scaler { transform: scale(0.6); transform-origin: center; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
                     </style>
                 </head>
                 <body>
@@ -65,9 +74,17 @@ const LayoutsPanel: React.FC<LayoutsPanelProps> = ({ layouts, focusedArtifact, o
 
         const { bodyContent, scripts, styles } = baseContent;
         const isDefault = layout.name === "Standard Sidebar";
+        const isMobile = layout.name === "Mobile Stack";
 
-        // Construct a safe preview document
-        // We use a 400% width container scaled down by 0.25 to simulate a full desktop view in the thumbnail
+        // Precise simulation parameters
+        const SIM_WIDTH = isMobile ? 375 : 1280;
+        const SIM_HEIGHT = isMobile ? 812 : 800;
+        
+        // Target container in drawer is approx 180px wide. 
+        // 180 / 1280 = 0.14 scale for desktop.
+        // 180 / 375 = 0.48 scale for mobile.
+        const targetScale = 180 / SIM_WIDTH;
+
         return `
             <!DOCTYPE html>
             <html>
@@ -78,16 +95,29 @@ const LayoutsPanel: React.FC<LayoutsPanelProps> = ({ layouts, focusedArtifact, o
                 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
                 ${styles}
                 <style>
-                    body { margin: 0; padding: 0; overflow: hidden; background: transparent; font-family: 'Inter', sans-serif; }
-                    /* Simulate desktop view scaled down */
-                    .preview-scaler { 
-                        width: 400%; 
-                        height: 400%; 
-                        transform: scale(0.25); 
-                        transform-origin: top left; 
-                        pointer-events: none;
-                        overflow: hidden;
+                    body { 
+                        margin: 0; padding: 0; overflow: hidden; background: #18181b; 
+                        font-family: 'Inter', sans-serif; height: 100vh;
+                        display: flex; align-items: center; justify-content: center;
                     }
+                    .preview-scaler { 
+                        width: ${SIM_WIDTH}px; 
+                        height: ${SIM_HEIGHT}px; 
+                        transform: scale(${targetScale}); 
+                        transform-origin: center; 
+                        pointer-events: none;
+                        background: #fff;
+                        box-shadow: 0 0 40px rgba(0,0,0,0.5);
+                        border-radius: ${isMobile ? '40px' : '8px'};
+                        overflow: hidden;
+                        position: relative;
+                    }
+                    ${isMobile ? `
+                        .preview-scaler::after {
+                            content: ""; position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+                            width: 100px; height: 25px; background: #000; border-radius: 20px; z-index: 100;
+                        }
+                    ` : ''}
                     ::-webkit-scrollbar { width: 0px; background: transparent; }
                     ${!isDefault ? layout.css : ''}
                 </style>
@@ -114,7 +144,7 @@ const LayoutsPanel: React.FC<LayoutsPanelProps> = ({ layouts, focusedArtifact, o
                         <div className="sexy-preview">
                             <iframe 
                                 srcDoc={previewHtml} 
-                                title={lo.name} 
+                                title={`${lo.name} Preview`} 
                                 loading="lazy" 
                                 sandbox="allow-scripts allow-same-origin"
                             />
