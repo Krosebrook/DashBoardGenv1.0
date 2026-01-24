@@ -15,12 +15,14 @@ import { INITIAL_PLACEHOLDERS, LAYOUT_OPTIONS } from './constants';
 import { generateId } from './utils';
 import { useHistory } from './hooks/useHistory';
 import { loadSessions, saveSessions, clearSessions } from './utils/storage';
+import { extractBodyContent } from './utils/htmlParser';
 import { 
     buildEnhancementParts, 
     getEnhancementModel, 
     buildGenerationParts,
     getIterationPrompt 
 } from './utils/aiHelpers';
+import { exportArtifactAsZip } from './utils/zipExporter';
 
 // Components
 import AuroraBackground from './components/AuroraBackground';
@@ -36,13 +38,15 @@ import HistoryPanel from './components/drawer/HistoryPanel';
 import SettingsPanel from './components/drawer/SettingsPanel';
 import EnhancePanel, { EnhanceType } from './components/drawer/EnhancePanel';
 import LayoutsPanel from './components/drawer/LayoutsPanel';
+import AssetPanel from './components/drawer/AssetPanel'; 
 
 // Icons
 import { 
     ThinkingIcon, CodeIcon, SparklesIcon, ArrowLeftIcon, 
     ArrowUpIcon, GridIcon, LayoutIcon, 
     UndoIcon, RedoIcon, SettingsIcon, WandIcon, ImageIcon, 
-    CloseIcon, MicIcon, ZapIcon, DiffIcon, HistoryIcon, PaperclipIcon
+    CloseIcon, MicIcon, ZapIcon, DiffIcon, HistoryIcon, PaperclipIcon,
+    TargetIcon, BugIcon, DownloadIcon, ArchiveIcon
 } from './components/Icons';
 
 function App() {
@@ -61,6 +65,9 @@ function App() {
   // --- UI State ---
   const [focusedArtifactIndex, setFocusedArtifactIndex] = useState<number | null>(null);
   const [isDiffMode, setIsDiffMode] = useState(false);
+  const [isInspectMode, setIsInspectMode] = useState(false);
+  const [runtimeError, setRuntimeError] = useState<string | null>(null);
+  
   const [inputValue, setInputValue] = useState<string>('');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [selectedDataFile, setSelectedDataFile] = useState<File | null>(null);
@@ -88,7 +95,7 @@ function App() {
   
   const [drawerState, setDrawerState] = useState<{
       isOpen: boolean;
-      mode: 'code' | 'layouts' | 'settings' | 'enhance' | 'history' | null;
+      mode: 'code' | 'layouts' | 'settings' | 'enhance' | 'history' | 'assets' | null;
       title: string;
       data: any;
   }>({ isOpen: false, mode: null, title: '', data: null });
@@ -109,27 +116,68 @@ function App() {
       return new GoogleGenAI({ apiKey });
   }, []);
 
-  // --- Voice Input ---
+  // --- Message Listener for Iframe Events (Errors & Inspector) ---
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+        if (!event.data) return;
+
+        if (event.data.type === 'RUNTIME_ERROR') {
+            setRuntimeError(event.data.error);
+        }
+        
+        if (event.data.type === 'ELEMENT_SELECTED') {
+            const { html, tagName } = event.data;
+            const snippet = html.length > 200 ? `<${tagName} ...>...` : html;
+            setIterationInput(prev => `Modify [${snippet}]: ${prev}`);
+            setIsInspectMode(false); // Turn off inspector after selection
+            if (iterationInputRef.current) iterationInputRef.current.focus();
+        }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // --- Voice Input (Optimized) ---
+  const shouldListenRef = useRef(false);
+  const focusedArtifactIndexRef = useRef(focusedArtifactIndex); 
+  
+  useEffect(() => {
+      focusedArtifactIndexRef.current = focusedArtifactIndex;
+  }, [focusedArtifactIndex]);
+
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = false;
+      
       recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
-        if (focusedArtifactIndex !== null) {
-            setIterationInput(transcript);
+        if (focusedArtifactIndexRef.current !== null) {
+            setIterationInput(prev => prev + (prev ? ' ' : '') + transcript);
         } else {
-            setInputValue(transcript);
+            setInputValue(prev => prev + (prev ? ' ' : '') + transcript);
         }
         setIsListening(false);
+        shouldListenRef.current = false;
       };
-      recognition.onend = () => setIsListening(false);
-      recognition.onerror = () => setIsListening(false);
+      
+      recognition.onend = () => {
+          setIsListening(false);
+          shouldListenRef.current = false;
+      };
+      
+      recognition.onerror = (e: any) => {
+          console.error("Speech error", e);
+          setIsListening(false);
+          shouldListenRef.current = false;
+      };
+      
       recognitionRef.current = recognition;
     }
-  }, [focusedArtifactIndex]);
+  }, []);
 
   const toggleListening = () => {
     if (isListening) {
@@ -167,6 +215,12 @@ function App() {
           setSelectedImage(e.target.files[0]);
           inputRef.current?.focus();
       }
+  };
+
+  const handleAssetSelect = (file: File) => {
+      setSelectedImage(file);
+      setDrawerState(s => ({...s, isOpen: false}));
+      inputRef.current?.focus();
   };
 
   const handleDataSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -292,6 +346,7 @@ function App() {
       if (focusedArtifactIndex === null || currentSessionIndex === -1 || !iterationInput.trim() || isLoading) return;
       const instruction = iterationInput.trim();
       setIterationInput('');
+      setRuntimeError(null); // Clear error on new iteration
       setIsLoading(true);
 
       try {
@@ -388,7 +443,6 @@ function App() {
         } : s));
 
         const generate = async (artifact: Artifact, style: string) => {
-            // Updated to pass selectedDataFile
             const parts = await buildGenerationParts(
                 trimmed, 
                 style, 
@@ -396,7 +450,6 @@ function App() {
                 hasImage ? selectedImage! : undefined,
                 hasData ? selectedDataFile! : undefined
             );
-            // Use Pro model if we have data or image for higher fidelity/reasoning
             const model = (hasImage || hasData) ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
 
             const stream = await ai.models.generateContentStream({ model, contents: [{ parts, role: "user" }] });
@@ -451,6 +504,27 @@ function App() {
     form.submit();
     document.body.removeChild(form);
   };
+  
+  const handleExportSessions = () => {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sessions));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", `dashgen_backup_${Date.now()}.json`);
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+  };
+
+  const handleImportSessions = (newSessions: Session[]) => {
+      setSessions(prev => [...prev, ...newSessions]);
+      setDrawerState(s => ({...s, isOpen: false}));
+  };
+
+  const handleZipDownload = () => {
+      if (focusedArtifactIndex === null || !currentSession) return;
+      const artifact = currentSession.artifacts[focusedArtifactIndex];
+      exportArtifactAsZip(artifact, currentSession);
+  };
 
   const hasStarted = sessions.length > 0 || isLoading;
   const currentSession = sessions[currentSessionIndex];
@@ -490,8 +564,15 @@ function App() {
             position={drawerState.mode === 'history' ? 'left' : 'right'}
         >
             {drawerState.mode === 'history' && <HistoryPanel sessions={sessions} currentSessionIndex={currentSessionIndex} onJumpToSession={jumpToSession} onDeleteSession={(id, e) => { e.stopPropagation(); setSessions(prev => prev.filter(s => s.id !== id)); }} />}
-            {drawerState.mode === 'settings' && <SettingsPanel settings={settings} onSettingsChange={setSettings} onClearHistoryRequest={() => setIsConfirmingClear(true)} />}
+            {drawerState.mode === 'settings' && <SettingsPanel 
+                settings={settings} 
+                onSettingsChange={setSettings} 
+                onClearHistoryRequest={() => setIsConfirmingClear(true)}
+                onImportSessions={handleImportSessions}
+                onExportSessions={handleExportSessions}
+            />}
             {drawerState.mode === 'enhance' && <EnhancePanel onEnhance={handleEnhance} />}
+            {drawerState.mode === 'assets' && <AssetPanel onSelect={handleAssetSelect} />}
             {drawerState.mode === 'code' && <CodeEditor initialValue={drawerState.data} onSave={(v) => {
                 setSessions(prev => prev.map((sess, i) => i === currentSessionIndex ? { ...sess, artifacts: sess.artifacts.map((art, j) => j === focusedArtifactIndex ? { ...art, html: v } : art) } : sess));
             }} />}
@@ -499,41 +580,11 @@ function App() {
                 if (focusedArtifactIndex === null) return;
                 const art = currentSession.artifacts[focusedArtifactIndex];
                 const base = art.originalHtml || art.html;
-                
-                const scriptRegex = /<script\b[^>]*>([\s\S]*?)<\/script>/gim;
-                const styleRegex = /<style\b[^>]*>([\s\S]*?)<\/style>/gim;
-                const scripts = (base.match(scriptRegex) || []).join('\n');
-                const styles = (base.match(styleRegex) || []).join('\n');
-                const bodyContent = base
-                    .replace(/<!DOCTYPE html>/gi, '')
-                    .replace(/<html\b[^>]*>/gi, '')
-                    .replace(/<\/html>/gi, '')
-                    .replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '')
-                    .replace(/<body\b[^>]*>/gi, '')
-                    .replace(/<\/body>/gi, '')
-                    .replace(scriptRegex, '')
-                    .replace(styleRegex, '');
+                const { body, scripts, styles } = extractBodyContent(base);
 
                 const wrapped = lo.name === "Standard Sidebar" 
                     ? base 
-                    : `
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                            <meta charset="UTF-8">
-                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                            <script src="https://cdn.tailwindcss.com"></script>
-                            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-                            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-                            ${styles}
-                            <style>${lo.css}</style>
-                        </head>
-                        <body>
-                            <div class="layout-container">${bodyContent}</div>
-                            ${scripts}
-                        </body>
-                        </html>
-                    `;
+                    : `<!DOCTYPE html><html><head><meta charset="UTF-8"><script src="https://cdn.tailwindcss.com"></script><script src="https://cdn.jsdelivr.net/npm/chart.js"></script><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">${styles}<style>${lo.css}</style></head><body><div class="layout-container">${body}</div>${scripts}</body></html>`;
                 
                 setSessions(prev => prev.map((s, i) => i === currentSessionIndex ? { ...s, artifacts: s.artifacts.map((a, j) => j === focusedArtifactIndex ? { ...a, html: wrapped, originalHtml: base, status: 'complete' } : a) } : s));
                 setDrawerState(s => ({...s, isOpen: false}));
@@ -565,12 +616,31 @@ function App() {
                     <div key={session.id} className={`session-group ${sIndex === currentSessionIndex ? 'active-session' : (sIndex < currentSessionIndex ? 'past-session' : 'future-session')}`}>
                         <div className="artifact-grid">
                             {session.artifacts.map((artifact, aIndex) => (
-                                <ArtifactCard key={artifact.id} artifact={artifact} isFocused={focusedArtifactIndex === aIndex} isDiffMode={isDiffMode} onClick={() => setFocusedArtifactIndex(aIndex)} />
+                                <ArtifactCard 
+                                    key={artifact.id} 
+                                    artifact={artifact} 
+                                    isFocused={focusedArtifactIndex === aIndex} 
+                                    isDiffMode={isDiffMode} 
+                                    isInspectMode={isInspectMode && focusedArtifactIndex === aIndex}
+                                    onClick={() => setFocusedArtifactIndex(aIndex)} 
+                                />
                             ))}
                         </div>
                     </div>
                 ))}
             </div>
+            
+            {/* Error Notification Toast */}
+            {runtimeError && (
+                 <div className="error-toast">
+                     <div className="error-content">
+                         <BugIcon />
+                         <span>Runtime Error: {runtimeError.substring(0, 50)}...</span>
+                     </div>
+                     <button onClick={() => { setIterationInput(`Fix runtime error: ${runtimeError}`); setRuntimeError(null); }}>Auto-Fix</button>
+                     <button className="close" onClick={() => setRuntimeError(null)}>&times;</button>
+                 </div>
+            )}
             
             <div className={`action-bar ${focusedArtifactIndex !== null ? 'visible' : ''}`}>
                  <div className="iteration-chat-container">
@@ -581,12 +651,15 @@ function App() {
                         <input 
                             ref={iterationInputRef}
                             type="text" 
-                            placeholder={isListening ? "Listening..." : "Tell AI what to refine..."} 
+                            placeholder={isInspectMode ? "Click an element to select it..." : (isListening ? "Listening..." : "Tell AI what to refine...")} 
                             value={iterationInput} 
                             onChange={(e) => setIterationInput(e.target.value)} 
                             onKeyDown={(e) => e.key === 'Enter' && handleIterate()} 
                             disabled={isLoading} 
                         />
+                        <button className={`inspect-btn ${isInspectMode ? 'active' : ''}`} onClick={() => setIsInspectMode(!isInspectMode)} title="Select element on screen">
+                            <TargetIcon />
+                        </button>
                         <button className="iteration-send-btn" onClick={handleIterate} disabled={isLoading || !iterationInput.trim()}>
                             {isLoading ? <ThinkingIcon /> : <ArrowUpIcon />}
                         </button>
@@ -599,6 +672,7 @@ function App() {
                     <button onClick={() => setDrawerState({ isOpen: true, mode: 'enhance', title: 'AI Enhancements', data: null })} title="AI Refinements"><WandIcon /> AI Enhancements</button>
                     <button onClick={() => setDrawerState({ isOpen: true, mode: 'layouts', title: 'Layout Templates', data: null })} title="Switch Layouts"><LayoutIcon /> Layouts</button>
                     <button onClick={handleExportToStackBlitz} title="Open in Cloud IDE"><ZapIcon /> Cloud Export</button>
+                    <button onClick={handleZipDownload} title="Download ZIP"><ArchiveIcon /> Download Code</button>
                     <button onClick={() => setDrawerState({ isOpen: true, mode: 'code', title: 'Direct Code Edit', data: currentSession?.artifacts[focusedArtifactIndex!].html })} title="Direct Editor"><CodeIcon /> Editor</button>
                  </div>
             </div>
@@ -621,7 +695,7 @@ function App() {
                         <input type="file" accept="image/*" ref={imageInputRef} style={{ display: 'none' }} onChange={handleImageSelect} />
                         <input type="file" accept=".csv,.json,.txt,.md,.pdf" ref={dataInputRef} style={{ display: 'none' }} onChange={handleDataSelect} />
                         
-                        <button className="upload-btn" onClick={() => imageInputRef.current?.click()} title="Vision-to-Code">
+                        <button className="upload-btn" onClick={() => setDrawerState({ isOpen: true, mode: 'assets', title: 'Asset Library', data: null })} title="Open Asset Library">
                             <ImageIcon />
                         </button>
                         <button className="upload-btn" onClick={() => dataInputRef.current?.click()} title="Attach Data Source (CSV/JSON/PDF)">

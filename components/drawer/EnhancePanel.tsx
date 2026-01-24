@@ -6,7 +6,8 @@
 
 import React, { useRef } from 'react';
 
-export type EnhanceType = 'a11y' | 'format' | 'dummy' | 'responsive' | 'tailwind' | 'charts' | 'content' | 'file-populate' | 'persona' | 'enhance-code';
+// Imported from types in parent scope or defined here for UI structure
+export type EnhanceType = 'a11y' | 'format' | 'dummy' | 'responsive' | 'tailwind' | 'charts' | 'content' | 'file-populate' | 'persona' | 'enhance-code' | 'ux-audit';
 
 interface EnhancePanelProps {
     onEnhance: (type: EnhanceType, file?: File) => void;
@@ -26,6 +27,7 @@ const ENHANCE_SECTIONS = [
     {
         title: "Intelligence & Data",
         items: [
+            { id: 'ux-audit', label: 'Automated UX Audit', desc: 'AI Persona agents test the UI for friction points and apply usability fixes immediately.', icon: '🕵️‍♂️', variant: 'blue' },
             { id: 'file-populate', label: 'File Populate', desc: 'Allows users to upload a file (txt, pdf, csv, json, md) and injects its data into the dashboard artifact.', icon: '📄', variant: 'blue' },
             { id: 'dummy', label: 'Smart Dummy Data', desc: 'Generate realistic business metrics, users, and datasets.', icon: '🔢', variant: 'green' },
             { id: 'persona', label: 'Persona & Identity', desc: 'Generate and inject realistic user personas, professional portraits from Unsplash, and relevant brand identity elements.', icon: '👤' },

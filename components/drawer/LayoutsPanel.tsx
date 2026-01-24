@@ -7,6 +7,7 @@
 import React, { useMemo } from 'react';
 import { LayoutOption, Artifact } from '../../types';
 import { ExpandIcon } from '../Icons';
+import { extractBodyContent } from '../../utils/htmlParser';
 
 interface LayoutsPanelProps {
     layouts: LayoutOption[];
@@ -17,45 +18,13 @@ interface LayoutsPanelProps {
 
 const LayoutsPanel: React.FC<LayoutsPanelProps> = ({ layouts, focusedArtifact, onApply, onPreview }) => {
 
-    /**
-     * Staff-grade content extraction.
-     * We don't just want the body; we want to preserve the designer's intent
-     * while stripping away any previously applied layout wrappers.
-     */
     const baseContent = useMemo(() => {
         const rawHtml = focusedArtifact ? (focusedArtifact.originalHtml || focusedArtifact.html) : '';
-        if (!rawHtml) return null;
-
-        // Strip previous layout containers to prevent nesting recursion
-        let cleanHtml = rawHtml.replace(/<div class="layout-container">([\s\S]*?)<\/div>(?=\s*<\/body>|\s*<script|$)/gim, '$1');
-
-        const scriptRegex = /<script\b[^>]*>([\s\S]*?)<\/script>/gim;
-        const styleRegex = /<style\b[^>]*>([\s\S]*?)<\/style>/gim;
-        
-        const scripts = (cleanHtml.match(scriptRegex) || []).join('\n');
-        const styles = (cleanHtml.match(styleRegex) || []).join('\n');
-
-        const bodyContent = cleanHtml
-            .replace(/<!DOCTYPE html>/gi, '')
-            .replace(/<html\b[^>]*>/gi, '')
-            .replace(/<\/html>/gi, '')
-            .replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '')
-            .replace(/<body\b[^>]*>/gi, '')
-            .replace(/<\/body>/gi, '')
-            .replace(scriptRegex, '')
-            .replace(styleRegex, '');
-
-        return { bodyContent, scripts, styles };
+        return extractBodyContent(rawHtml);
     }, [focusedArtifact]);
 
-    /**
-     * Staff Designer Preview Strategy:
-     * Instead of a generic scale, we calculate precise scaling per layout.
-     * We also simulate high-fidelity browser environments for the thumbnails.
-     */
     const getPreviewHtml = (layout: LayoutOption) => {
-        // Fallback for empty state or generic previews
-        if (!baseContent) {
+        if (!baseContent.body) {
             return `
                 <!DOCTYPE html>
                 <html>
@@ -72,17 +41,12 @@ const LayoutsPanel: React.FC<LayoutsPanelProps> = ({ layouts, focusedArtifact, o
             `;
         }
 
-        const { bodyContent, scripts, styles } = baseContent;
+        const { body, scripts, styles } = baseContent;
         const isDefault = layout.name === "Standard Sidebar";
         const isMobile = layout.name === "Mobile Stack";
 
-        // Precise simulation parameters
         const SIM_WIDTH = isMobile ? 375 : 1280;
         const SIM_HEIGHT = isMobile ? 812 : 800;
-        
-        // Target container in drawer is approx 180px wide. 
-        // 180 / 1280 = 0.14 scale for desktop.
-        // 180 / 375 = 0.48 scale for mobile.
         const targetScale = 180 / SIM_WIDTH;
 
         return `
@@ -124,7 +88,7 @@ const LayoutsPanel: React.FC<LayoutsPanelProps> = ({ layouts, focusedArtifact, o
             </head>
             <body>
                 <div class="preview-scaler">
-                    ${!isDefault ? `<div class="layout-container">${bodyContent}</div>` : bodyContent}
+                    ${!isDefault ? `<div class="layout-container">${body}</div>` : body}
                 </div>
                 ${scripts}
             </body>

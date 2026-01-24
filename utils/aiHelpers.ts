@@ -51,7 +51,8 @@ export const getEnhancementModel = (type: EnhanceType): string => {
         'responsive', 
         'tailwind', 
         'charts', 
-        'enhance-code'
+        'enhance-code',
+        'ux-audit'
     ];
     return proModels.includes(type) ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
 };
@@ -100,13 +101,18 @@ export const buildEnhancementParts = async (
             break;
         case 'a11y':
             enhancementPrompt = `
-                You are a Staff Accessibility Engineer. Fix all WCAG 2.1 AA compliance issues.
-                1. SEMANTICS: Ensure <main>, <nav>, <header>, <footer>, and <section> are used correctly.
-                2. ARIA: Add meaningful aria-labels, aria-expanded, and roles to custom interactive elements.
-                3. CONTRAST: Verify and fix color contrast ratios to exceed 4.5:1.
-                4. FORMS: Ensure all inputs have associated <label>s or aria-labelledby.
-                5. FOCUS: Implement clear, visible focus rings and logical tab order.
-                Return ONLY updated raw HTML.
+                You are a Staff Accessibility Engineer. Retrofit this dashboard to meet strict WCAG 2.1 AA standards.
+                
+                CRITICAL REQUIREMENTS:
+                1. SEMANTICS: Replace <div> soup with semantic tags (<main>, <nav>, <article>, <header>, <aside>) where appropriate.
+                2. ARIA: Ensure every interactive element (button, input, toggle) has a valid 'aria-label' or 'aria-labelledby'.
+                3. CONTRAST: Enforce a minimum 4.5:1 contrast ratio for all text. Darken light gray text if necessary.
+                4. FOCUS: Ensure all interactive elements have visible focus states (e.g., outline: 2px solid blue).
+                5. HIERARCHY: Verify heading levels (h1 -> h2 -> h3) are logical and not skipped.
+                6. IMAGES: Add descriptive 'alt' text to meaningful images and 'alt=""' to decorative ones.
+                7. FORMS: Ensure every <input> has a linked <label>.
+                
+                OUTPUT: Return ONLY the repaired, valid raw HTML.
             `;
             break;
         case 'responsive':
@@ -161,6 +167,16 @@ export const buildEnhancementParts = async (
                 3. POLISH: Refine borders, shadows, and spacing to a "Linear/Stripe" quality bar.
                 4. CHARTS: Automatically add data viz if it improves the UX.
                 Return ONLY standalone raw HTML.
+            `;
+            break;
+        case 'ux-audit':
+            enhancementPrompt = `
+                You are a Lead UX Researcher. Conduct a usability audit and immediately apply fixes.
+                1. ANALYZE: Identify friction points, confusing layouts, poor affordances, or layout shifts.
+                2. HEURISTICS: Apply Nielsen's 10 Usability Heuristics (e.g., Visibility of system status, User control).
+                3. ACTION: Fix the code to resolve these issues. Improve error states, empty states, and button placement.
+                4. FEEDBACK: Add tooltips or micro-copy to guide the user where necessary.
+                Return ONLY the upgraded, production-ready HTML.
             `;
             break;
         case 'format':
@@ -241,5 +257,38 @@ export const getIterationPrompt = (instruction: string, currentHtml: string): st
         ${currentHtml}
         Maintain the existing design language, layout principles, and component hierarchy.
         Return ONLY the complete updated raw HTML.
+    `;
+};
+
+/**
+ * Prompt to extract a component in various frameworks.
+ */
+export const extractComponentPrompt = (html: string, framework: string): string => {
+    const specs = {
+        'React': 'React functional component (TSX). Use lucide-react for icons. No import React.',
+        'Vue': 'Vue 3 Single File Component (<script setup>). Use lucide-vue-next.',
+        'Svelte': 'Svelte 4 component. Use lucide-svelte.',
+        'Angular': 'Angular standalone component (TS). Inline template and styles.',
+        'HTML': 'Clean HTML/CSS snippet.'
+    };
+    
+    const spec = specs[framework as keyof typeof specs] || specs['React'];
+
+    return `
+        You are a Senior Frontend Engineer. Convert the provided HTML/CSS artifact into a ${framework} component.
+        
+        SPECIFICATION: ${spec}
+        
+        INSTRUCTIONS:
+        1. Identify the main widget or layout in the HTML.
+        2. Refactor into idiomatic ${framework} code.
+        3. Use Tailwind CSS for styling (convert custom CSS to arbitrary values if needed).
+        4. If external libraries (like Chart.js) are used, mock the data or use a framework-specific wrapper if obvious, otherwise keep as DOM operations.
+        
+        SOURCE HTML:
+        ${html}
+        
+        OUTPUT FORMAT:
+        Return ONLY the raw code. No markdown code blocks.
     `;
 };

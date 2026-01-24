@@ -31,3 +31,5 @@ export interface GenerationSettings {
     autoCharts: boolean; // Automatically inject interactive charts
     autoPersonas: boolean; // Automatically inject brand personas
 }
+
+export type EnhanceType = 'a11y' | 'format' | 'dummy' | 'responsive' | 'tailwind' | 'charts' | 'content' | 'file-populate' | 'persona' | 'enhance-code' | 'ux-audit';

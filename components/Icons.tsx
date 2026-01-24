@@ -170,3 +170,37 @@ export const DiffIcon = () => (
         <line x1="12" y1="3" x2="12" y2="21"></line>
     </svg>
 );
+export const TargetIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="22" y1="12" x2="18" y2="12"></line>
+        <line x1="6" y1="12" x2="2" y2="12"></line>
+        <line x1="12" y1="6" x2="12" y2="2"></line>
+        <line x1="12" y1="22" x2="12" y2="18"></line>
+        <circle cx="12" cy="12" r="3"></circle>
+    </svg>
+);
+export const BugIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect width="8" height="14" x="8" y="6" rx="4" />
+        <path d="m19 7-3 2" /><path d="m5 7 3 2" />
+        <path d="m19 19-3-2" /><path d="m5 19 3-2" />
+        <path d="M20 13h-4" /><path d="M4 13h4" />
+        <path d="m10 4 1 2" /><path d="m14 4-1 2" />
+    </svg>
+);
+export const ReactIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="2"></circle>
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" opacity="0.1"></path>
+        <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(45 12 12)"></ellipse>
+        <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(135 12 12)"></ellipse>
+    </svg>
+);
+export const ArchiveIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="21 8 21 21 3 21 3 8"></polyline>
+        <rect x="1" y="3" width="22" height="5"></rect>
+        <line x1="10" y1="12" x2="14" y2="12"></line>
+    </svg>
+);
