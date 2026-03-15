@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import JSZip from 'https://esm.sh/jszip@3.10.1';
+import JSZip from 'jszip';
 import { Artifact, Session } from '../types';
 
 export const exportArtifactAsZip = async (artifact: Artifact, session: Session) => {
